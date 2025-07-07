@@ -1,0 +1,188 @@
+# GaleNet - Default Configuration
+
+# Hydra configuration
+defaults:
+  - _self_
+  - data: era5
+  - model: ensemble
+  - training: default
+  - override hydra/launcher: basic
+
+# General settings
+project:
+  name: "galenet"
+  version: "0.1.0"
+  seed: 42
+  device: "cuda"  # cuda or cpu
+  mixed_precision: true
+  
+# Data configuration
+data:
+  # Data paths
+  root_dir: "${oc.env:HOME}/data/galenet"
+  hurdat2_path: "${data.root_dir}/hurdat2/hurdat2.txt"
+  ibtracs_path: "${data.root_dir}/ibtracs/IBTrACS.ALL.v04r00.nc"
+  era5_cache_dir: "${data.root_dir}/era5"
+  
+  # Hurricane data settings
+  min_hurricane_intensity: 64  # knots (Category 1)
+  training_years: [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
+  validation_years: [2020, 2021]
+  test_years: [2022, 2023]
+  
+  # ERA5 settings
+  era5:
+    variables:
+      - "10m_u_component_of_wind"
+      - "10m_v_component_of_wind"
+      - "mean_sea_level_pressure"
+      - "2m_temperature"
+      - "sea_surface_temperature"
+      - "total_precipitation"
+      - "convective_available_potential_energy"
+    pressure_levels: [1000, 925, 850, 700, 500, 300, 200]
+    patch_size: 25.0  # degrees
+    
+  # Data pipeline settings
+  pipeline:
+    batch_size: 4
+    num_workers: 4
+    prefetch_factor: 2
+    pin_memory: true
+    shuffle: true
+    
+# Model configuration
+model:
+  # Model selection
+  name: "hurricane_ensemble"  # Options: graphcast, pangu, hurricane_cnn, ensemble
+  
+  # GraphCast settings
+  graphcast:
+    checkpoint_path: "${data.root_dir}/models/graphcast/params.npz"
+    resolution: 0.25  # degrees
+    num_layers: 16
+    hidden_dim: 512
+    num_heads: 8
+    
+  # Pangu-Weather settings
+  pangu:
+    checkpoint_path: "${data.root_dir}/models/pangu/weights.pt"
+    patch_size: 4
+    embed_dim: 192
+    num_heads: 16
+    
+  # Hurricane CNN-Transformer
+  hurricane_cnn:
+    encoder_layers: 6
+    decoder_layers: 6
+    hidden_dim: 256
+    num_heads: 8
+    dropout: 0.1
+    
+  # Ensemble settings
+  ensemble:
+    size: 50
+    method: "perturbation"  # perturbation, dropout, multi_model
+    perturbation_scale: 0.01
+    
+# Training configuration
+training:
+  # Basic settings
+  epochs: 100
+  learning_rate: 5e-5
+  weight_decay: 1e-4
+  gradient_clip: 1.0
+  gradient_accumulation_steps: 8
+  
+  # Scheduler
+  scheduler:
+    name: "cosine"  # cosine, linear, exponential
+    warmup_steps: 1000
+    min_lr: 1e-6
+    
+  # Loss functions
+  loss:
+    track_weight: 1.0
+    intensity_weight: 0.5
+    physics_weight: 0.2
+    
+  # Physics-informed constraints
+  physics:
+    enforce_wind_pressure: true
+    enforce_gradient_wind: true
+    max_intensification_rate: 50  # kt/24hr
+    
+  # Checkpointing
+  checkpoint:
+    save_interval: 5  # epochs
+    save_best: true
+    monitor_metric: "val_track_error"
+    
+  # Early stopping
+  early_stopping:
+    patience: 20
+    min_delta: 0.001
+    
+# Inference configuration
+inference:
+  # Forecast settings
+  forecast_hours: 120  # 5 days
+  time_step: 6  # hours
+  
+  # Ensemble generation
+  ensemble:
+    enabled: true
+    size: 50
+    
+  # Post-processing
+  post_process:
+    smooth_track: true
+    enforce_physics: true
+    
+# Evaluation configuration
+evaluation:
+  metrics:
+    - "track_error"
+    - "along_track_error"
+    - "cross_track_error"
+    - "intensity_mae"
+    - "rapid_intensification_skill"
+    
+  baselines:
+    - "persistence"
+    - "cliper5"
+    - "gfs"
+    - "ecmwf"
+    
+# Logging configuration
+logging:
+  level: "INFO"
+  mlflow:
+    enabled: true
+    tracking_uri: "file://${data.root_dir}/mlruns"
+    experiment_name: "galenet_experiments"
+    
+  tensorboard:
+    enabled: true
+    log_dir: "${data.root_dir}/logs"
+    
+  wandb:
+    enabled: false
+    project: "galenet"
+    
+# Hardware configuration
+hardware:
+  gpu:
+    memory_fraction: 0.9
+    allow_growth: true
+    
+  distributed:
+    enabled: false
+    backend: "nccl"
+    
+# API configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  reload: false
