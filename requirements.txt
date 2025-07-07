@@ -1,181 +1,79 @@
-# GaleNet Quick Start Guide 🚀
+# Core dependencies
+numpy<2.0
+scipy>=1.10.0
+pandas>=2.0.0
+xarray>=2023.1.0
+netcdf4>=1.6.0
+h5netcdf>=1.0.0
+zarr>=2.14.0
 
-Get up and running with GaleNet in 5 minutes!
+# PyTorch (install with conda for CUDA support)
+torch>=2.0.0
+torchvision>=0.15.0
 
-## Prerequisites
+# Machine Learning
+scikit-learn>=1.3.0
+einops>=0.7.0
+transformers>=4.35.0
 
-- Linux/macOS system with NVIDIA GPU (optional but recommended)
-- ~50GB free disk space for data
-- Conda/Mamba package manager
-- Git
+# Configuration and logging
+hydra-core>=1.3.0
+omegaconf>=2.3.0
+loguru>=0.7.0
+python-dotenv>=1.0.0
 
-## Installation
+# Data processing
+dask[complete]>=2023.1.0
+numba>=0.57.0
+bottleneck>=1.3.0
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/KuRue/GaleNet.git
-cd GaleNet
-```
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.18.0
+bokeh>=3.0.0
 
-### 2. Quick Setup (All-in-One)
-```bash
-make quickstart
-```
+# Geospatial (better installed with conda)
+# cartopy>=0.21.0
+# geopandas>=0.13.0
 
-This command will:
-- Create the conda environment
-- Install GaleNet in development mode
-- Download hurricane data
-- Run validation tests
+# Hurricane specific
+tropycal>=0.5.0
+metpy>=1.5.0
+cdsapi>=0.6.0  # For ERA5 downloads
 
-### 3. Manual Setup (Step-by-Step)
+# API and serving
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
 
-If you prefer manual setup or the quickstart fails:
+# Development tools
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+black>=23.11.0
+flake8>=6.1.0
+mypy>=1.7.0
+isort>=5.12.0
+pre-commit>=3.5.0
 
-```bash
-# Create environment
-conda env create -f environment.yml
-conda activate galenet
+# Monitoring
+mlflow>=2.8.0
+tensorboard>=2.14.0
+prometheus-client>=0.19.0
 
-# Install package
-pip install -e .
+# Documentation
+sphinx>=7.2.0
+sphinx-rtd-theme>=2.0.0
+myst-parser>=2.0.0
 
-# Download data
-python scripts/setup_data.py --all
+# Utilities
+tqdm>=4.66.0
+rich>=13.7.0
+click>=8.1.0
+typer>=0.9.0
+psutil>=5.9.0
+GPUtil>=1.4.0
 
-# Test installation
-python scripts/test_data_loading.py
-```
-
-## First Run
-
-### 1. Start Jupyter Lab
-```bash
-conda activate galenet
-make notebook
-```
-
-Then open http://localhost:8888 in your browser.
-
-### 2. Run the Quick Start Notebook
-
-Navigate to `notebooks/01_galenet_quickstart.ipynb` and run all cells.
-
-### 3. Test Data Loading (CLI)
-```bash
-python scripts/test_data_loading.py
-```
-
-Expected output:
-```
-GaleNet Data Loading Test Suite
-============================================================
-Running: HURDAT2 Loading
-✅ HURDAT2 data found
-✅ Loaded 50,000+ records from 1,800+ storms
-...
-🎉 All tests passed!
-```
-
-## Basic Usage
-
-### Python API
-```python
-from galenet import HurricaneDataPipeline
-
-# Initialize pipeline
-pipeline = HurricaneDataPipeline()
-
-# Load hurricane data
-hurricane_data = pipeline.load_hurricane_for_training(
-    storm_id="AL092023",  # Hurricane Lee
-    include_era5=False    # Skip ERA5 for quick test
-)
-
-# Access track data
-track = hurricane_data['track']
-print(f"Storm: {track['name'].iloc[0]}")
-print(f"Peak intensity: {track['max_wind'].max()} kt")
-```
-
-### Command Line
-```bash
-# Check GPU availability
-make check-gpu
-
-# Run tests
-make test
-
-# Format code
-make format
-
-# Start MLflow tracking
-make mlflow
-```
-
-## Common Issues
-
-### 1. HURDAT2 Data Not Found
-```bash
-# Download manually
-python scripts/setup_data.py --download-hurdat2
-```
-
-### 2. Import Errors
-```bash
-# Ensure environment is activated
-conda activate galenet
-
-# Reinstall in development mode
-pip install -e .
-```
-
-### 3. No GPU Detected
-```bash
-# Check CUDA installation
-nvidia-smi
-
-# CPU-only mode is supported but slower
-```
-
-### 4. ERA5 Download Issues
-ERA5 requires Copernicus Climate Data Store credentials:
-1. Register at https://cds.climate.copernicus.eu/user/register
-2. Get API key from https://cds.climate.copernicus.eu/api-how-to
-3. Create `~/.cdsapirc` with your credentials
-
-## Project Structure
-```
-GaleNet/
-├── src/galenet/       # Main package
-│   ├── data/         # Data loading & preprocessing
-│   ├── models/       # Model implementations (coming soon)
-│   ├── training/     # Training pipelines (coming soon)
-│   └── utils/        # Utilities
-├── notebooks/         # Example notebooks
-├── scripts/          # Utility scripts
-├── configs/          # Configuration files
-└── tests/            # Unit tests
-```
-
-## Next Steps
-
-1. **Explore the Data**: Run the quickstart notebook to visualize hurricane tracks
-2. **Preprocess Data**: Use `HurricanePreprocessor` to prepare training data
-3. **Download ERA5**: Get reanalysis data for atmospheric context
-4. **Stay Tuned**: Model training capabilities coming soon!
-
-## Getting Help
-
-- 📚 Check the [full documentation](docs/)
-- 🐛 Report issues on [GitHub](https://github.com/KuRue/GaleNet/issues)
-- 💬 Join discussions in GitHub Issues
-- 📧 Contact: your.email@example.com
-
-## Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-Happy forecasting! 🌀
+# Optional: Install these from git if available
+# git+https://github.com/deepmind/graphcast.git
