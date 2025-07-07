@@ -1,0 +1,446 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# GaleNet Quick Start Guide\n",
+    "\n",
+    "This notebook demonstrates the basic functionality of GaleNet for hurricane data loading and preprocessing."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1. Setup and Imports"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Standard imports\n",
+    "import sys\n",
+    "from pathlib import Path\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')\n",
+    "\n",
+    "# Add src to path if running from notebooks directory\n",
+    "sys.path.append(str(Path.cwd().parent / 'src'))\n",
+    "\n",
+    "# Data manipulation\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "import xarray as xr\n",
+    "\n",
+    "# Visualization\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "import cartopy.crs as ccrs\n",
+    "import cartopy.feature as cfeature\n",
+    "\n",
+    "# GaleNet imports\n",
+    "from galenet.data.loaders import HURDAT2Loader, HurricaneDataPipeline\n",
+    "from galenet.data.processors import HurricanePreprocessor\n",
+    "from galenet.data.validators import HurricaneDataValidator\n",
+    "from galenet.utils import setup_logging\n",
+    "\n",
+    "# Setup logging\n",
+    "setup_logging(level=\"INFO\")\n",
+    "\n",
+    "# Set plot style\n",
+    "plt.style.use('seaborn-v0_8-darkgrid')\n",
+    "%matplotlib inline"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Load Hurricane Data\n",
+    "\n",
+    "First, let's check if we have the HURDAT2 data available and load it."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Initialize HURDAT2 loader\n",
+    "hurdat2_loader = HURDAT2Loader()\n",
+    "\n",
+    "# Check if data exists\n",
+    "if not hurdat2_loader.data_path.exists():\n",
+    "    print(f\"⚠️  HURDAT2 data not found at {hurdat2_loader.data_path}\")\n",
+    "    print(\"\\nPlease run: python scripts/setup_data.py --download-hurdat2\")\n",
+    "else:\n",
+    "    print(f\"✅ HURDAT2 data found at {hurdat2_loader.data_path}\")\n",
+    "    \n",
+    "    # Load the data\n",
+    "    hurdat2_df = hurdat2_loader.load_data()\n",
+    "    print(f\"\\nLoaded {len(hurdat2_df)} records from {len(hurdat2_df.storm_id.unique())} storms\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. Explore Available Storms"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Get available storms\n",
+    "available_storms = hurdat2_loader.get_available_storms()\n",
+    "print(f\"Total storms in database: {len(available_storms)}\\n\")\n",
+    "\n",
+    "# Show recent major hurricanes\n",
+    "recent_storms = []\n",
+    "for storm_id, name in available_storms.items():\n",
+    "    year = int('20' + storm_id[4:6]) if storm_id[4:6] < '50' else int('19' + storm_id[4:6])\n",
+    "    if year >= 2020:\n",
+    "        recent_storms.append((storm_id, name, year))\n",
+    "\n",
+    "print(\"Recent storms (2020+):\")\n",
+    "for storm_id, name, year in sorted(recent_storms[-10:], key=lambda x: x[0]):\n",
+    "    print(f\"  {storm_id}: {name} ({year})\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 4. Load and Analyze a Specific Hurricane\n",
+    "\n",
+    "Let's analyze a specific hurricane in detail."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load a specific storm - let's use a recent major hurricane\n",
+    "# You can change this to any storm ID from the list above\n",
+    "storm_id = \"AL092023\"  # Hurricane Lee (2023)\n",
+    "\n",
+    "try:\n",
+    "    storm_data = hurdat2_loader.get_storm(storm_id)\n",
+    "    print(f\"Loaded {storm_data.name.iloc[0]} ({storm_id})\")\n",
+    "    print(f\"Duration: {storm_data.timestamp.min()} to {storm_data.timestamp.max()}\")\n",
+    "    print(f\"Peak intensity: {storm_data.max_wind.max()} kt\")\n",
+    "    print(f\"Minimum pressure: {storm_data.min_pressure.min()} mb\")\n",
+    "    print(f\"Track points: {len(storm_data)}\")\n",
+    "except ValueError:\n",
+    "    print(f\"Storm {storm_id} not found. Using a default storm...\")\n",
+    "    # Use the first available recent storm\n",
+    "    storm_id = recent_storms[0][0] if recent_storms else list(available_storms.keys())[0]\n",
+    "    storm_data = hurdat2_loader.get_storm(storm_id)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 5. Visualize Hurricane Track"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Create track visualization\n",
+    "fig = plt.figure(figsize=(12, 8))\n",
+    "ax = plt.axes(projection=ccrs.PlateCarree())\n",
+    "\n",
+    "# Add map features\n",
+    "ax.add_feature(cfeature.LAND, alpha=0.5)\n",
+    "ax.add_feature(cfeature.OCEAN, alpha=0.3)\n",
+    "ax.add_feature(cfeature.COASTLINE)\n",
+    "ax.add_feature(cfeature.BORDERS, alpha=0.5)\n",
+    "\n",
+    "# Plot track colored by intensity\n",
+    "scatter = ax.scatter(\n",
+    "    storm_data.longitude, \n",
+    "    storm_data.latitude,\n",
+    "    c=storm_data.max_wind,\n",
+    "    s=50,\n",
+    "    cmap='YlOrRd',\n",
+    "    transform=ccrs.PlateCarree(),\n",
+    "    alpha=0.8,\n",
+    "    edgecolors='black',\n",
+    "    linewidth=0.5\n",
+    ")\n",
+    "\n",
+    "# Plot track line\n",
+    "ax.plot(\n",
+    "    storm_data.longitude,\n",
+    "    storm_data.latitude,\n",
+    "    'k-',\n",
+    "    transform=ccrs.PlateCarree(),\n",
+    "    linewidth=1,\n",
+    "    alpha=0.5\n",
+    ")\n",
+    "\n",
+    "# Add colorbar\n",
+    "cbar = plt.colorbar(scatter, ax=ax, pad=0.02)\n",
+    "cbar.set_label('Maximum Wind Speed (kt)', rotation=270, labelpad=20)\n",
+    "\n",
+    "# Set extent\n",
+    "lon_min, lon_max = storm_data.longitude.min() - 5, storm_data.longitude.max() + 5\n",
+    "lat_min, lat_max = storm_data.latitude.min() - 5, storm_data.latitude.max() + 5\n",
+    "ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())\n",
+    "\n",
+    "# Add gridlines\n",
+    "gl = ax.gridlines(draw_labels=True, alpha=0.3)\n",
+    "gl.top_labels = False\n",
+    "gl.right_labels = False\n",
+    "\n",
+    "# Title\n",
+    "plt.title(f\"{storm_data.name.iloc[0]} ({storm_id}) Track\\n{storm_data.timestamp.min().date()} to {storm_data.timestamp.max().date()}\",\n",
+    "          fontsize=14, pad=10)\n",
+    "\n",
+    "plt.tight_layout()\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6. Analyze Hurricane Intensity Evolution"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Create intensity plots\n",
+    "fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)\n",
+    "\n",
+    "# Plot wind speed\n",
+    "ax1.plot(storm_data.timestamp, storm_data.max_wind, 'b-', linewidth=2, label='Max Wind')\n",
+    "ax1.axhline(y=64, color='orange', linestyle='--', alpha=0.5, label='Cat 1')\n",
+    "ax1.axhline(y=83, color='red', linestyle='--', alpha=0.5, label='Cat 2')\n",
+    "ax1.axhline(y=96, color='darkred', linestyle='--', alpha=0.5, label='Cat 3')\n",
+    "ax1.axhline(y=113, color='purple', linestyle='--', alpha=0.5, label='Cat 4')\n",
+    "ax1.axhline(y=137, color='black', linestyle='--', alpha=0.5, label='Cat 5')\n",
+    "ax1.set_ylabel('Wind Speed (kt)', fontsize=12)\n",
+    "ax1.grid(True, alpha=0.3)\n",
+    "ax1.legend(loc='upper right')\n",
+    "ax1.set_title(f'{storm_data.name.iloc[0]} Intensity Evolution', fontsize=14)\n",
+    "\n",
+    "# Plot pressure\n",
+    "ax2.plot(storm_data.timestamp, storm_data.min_pressure, 'g-', linewidth=2)\n",
+    "ax2.set_ylabel('Minimum Pressure (mb)', fontsize=12)\n",
+    "ax2.set_xlabel('Date', fontsize=12)\n",
+    "ax2.grid(True, alpha=0.3)\n",
+    "ax2.invert_yaxis()  # Lower pressure = stronger storm\n",
+    "\n",
+    "# Format x-axis\n",
+    "fig.autofmt_xdate()\n",
+    "plt.tight_layout()\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 7. Data Preprocessing Example"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Initialize preprocessor\n",
+    "preprocessor = HurricanePreprocessor()\n",
+    "\n",
+    "# Create features from track data\n",
+    "track_features = preprocessor.create_track_features(storm_data)\n",
+    "\n",
+    "print(\"Original columns:\")\n",
+    "print(list(storm_data.columns))\n",
+    "print(f\"\\nEnhanced feature columns ({len(track_features.columns)} total):\")\n",
+    "print(list(track_features.columns))\n",
+    "\n",
+    "# Show sample of new features\n",
+    "print(\"\\nSample of engineered features:\")\n",
+    "display_cols = ['timestamp', 'latitude', 'longitude', 'speed', 'heading', 'wind_change']\n",
+    "print(track_features[display_cols].head(10))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 8. Validate Hurricane Data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Initialize validator\n",
+    "validator = HurricaneDataValidator()\n",
+    "\n",
+    "# Validate track data\n",
+    "is_valid, errors = validator.validate_track(storm_data)\n",
+    "\n",
+    "print(f\"Track validation: {'✅ PASSED' if is_valid else '❌ FAILED'}\")\n",
+    "if errors:\n",
+    "    print(\"\\nValidation errors:\")\n",
+    "    for error in errors:\n",
+    "        print(f\"  - {error}\")\n",
+    "\n",
+    "# Validate physics\n",
+    "physics_valid, physics_errors = validator.validate_intensity_physics(storm_data)\n",
+    "\n",
+    "print(f\"\\nPhysics validation: {'✅ PASSED' if physics_valid else '⚠️  WARNINGS'}\")\n",
+    "if physics_errors:\n",
+    "    print(\"\\nPhysics warnings:\")\n",
+    "    for error in physics_errors:\n",
+    "        print(f\"  - {error}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 9. Prepare Training Sequences"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Normalize features\n",
+    "normalized_features = preprocessor.normalize_track_data(track_features)\n",
+    "\n",
+    "# Prepare sequences for training\n",
+    "sequence_length = 8  # Use 8 time steps (48 hours) as input\n",
+    "forecast_length = 4  # Predict 4 time steps (24 hours) ahead\n",
+    "\n",
+    "inputs, targets = preprocessor.prepare_sequences(\n",
+    "    normalized_features,\n",
+    "    sequence_length=sequence_length,\n",
+    "    forecast_length=forecast_length\n",
+    ")\n",
+    "\n",
+    "print(f\"Training sequences created:\")\n",
+    "print(f\"  Input shape: {inputs.shape}\")\n",
+    "print(f\"  Target shape: {targets.shape}\")\n",
+    "print(f\"  Number of sequences: {len(inputs)}\")\n",
+    "print(f\"  Features per timestep: {inputs.shape[-1]}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 10. Summary Statistics"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Get storms by year for recent years\n",
+    "years_summary = {}\n",
+    "for year in range(2019, 2024):\n",
+    "    year_storms = hurdat2_loader.get_storms_by_year(year)\n",
+    "    years_summary[year] = len(year_storms)\n",
+    "\n",
+    "# Create summary plot\n",
+    "fig, ax = plt.subplots(figsize=(10, 6))\n",
+    "\n",
+    "years = list(years_summary.keys())\n",
+    "counts = list(years_summary.values())\n",
+    "\n",
+    "bars = ax.bar(years, counts, color='steelblue', alpha=0.8)\n",
+    "ax.set_xlabel('Year', fontsize=12)\n",
+    "ax.set_ylabel('Number of Storms', fontsize=12)\n",
+    "ax.set_title('Atlantic Hurricane Activity by Year', fontsize=14)\n",
+    "\n",
+    "# Add value labels on bars\n",
+    "for bar, count in zip(bars, counts):\n",
+    "    height = bar.get_height()\n",
+    "    ax.text(bar.get_x() + bar.get_width()/2., height,\n",
+    "            f'{count}', ha='center', va='bottom')\n",
+    "\n",
+    "ax.grid(True, alpha=0.3, axis='y')\n",
+    "plt.tight_layout()\n",
+    "plt.show()\n",
+    "\n",
+    "print(\"\\nSummary:\")\n",
+    "print(f\"Average storms per year: {np.mean(counts):.1f}\")\n",
+    "print(f\"Most active year: {max(years_summary, key=years_summary.get)} ({max(counts)} storms)\")\n",
+    "print(f\"Least active year: {min(years_summary, key=years_summary.get)} ({min(counts)} storms)\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Next Steps\n",
+    "\n",
+    "This notebook demonstrated basic GaleNet functionality:\n",
+    "- Loading hurricane track data from HURDAT2\n",
+    "- Visualizing hurricane tracks and intensity\n",
+    "- Feature engineering and preprocessing\n",
+    "- Data validation\n",
+    "- Sequence preparation for model training\n",
+    "\n",
+    "Future notebooks will cover:\n",
+    "- ERA5 reanalysis data integration\n",
+    "- Model training with GraphCast/Pangu-Weather\n",
+    "- Ensemble forecasting\n",
+    "- Performance evaluation against GFS/ECMWF"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
