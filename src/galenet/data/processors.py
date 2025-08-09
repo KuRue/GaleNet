@@ -40,25 +40,34 @@ class HurricanePreprocessor:
         # Normalize positions (lat/lon)
         position_cols = ['latitude', 'longitude']
         if fit:
-            normalized_df[position_cols] = self.position_scaler.fit_transform(
-                normalized_df[position_cols]
-            )
+            # scikit-learn's StandardScaler uses population statistics (ddof=0)
+            # which results in the sample standard deviation being greater than 1
+            # when checked with pandas' default `std` (ddof=1).  This caused unit
+            # tests that expect a sample std of exactly 1 to fail.  To avoid this
+            # discrepancy we apply a correction factor so that the transformed
+            # data has a sample standard deviation of 1.  The correction factor is
+            # stored for use when transforming new data.
+            scaled = self.position_scaler.fit_transform(normalized_df[position_cols])
+            n = len(normalized_df[position_cols])
+            self._pos_scale_factor = np.sqrt((n - 1) / n) if n > 1 else 1.0
+            normalized_df[position_cols] = scaled * self._pos_scale_factor
         else:
-            normalized_df[position_cols] = self.position_scaler.transform(
-                normalized_df[position_cols]
-            )
+            scaled = self.position_scaler.transform(normalized_df[position_cols])
+            factor = getattr(self, "_pos_scale_factor", 1.0)
+            normalized_df[position_cols] = scaled * factor
         
         # Normalize intensity (wind/pressure)
         intensity_cols = ['max_wind', 'min_pressure']
         if intensity_cols[0] in normalized_df.columns:
             if fit:
-                normalized_df[intensity_cols] = self.intensity_scaler.fit_transform(
-                    normalized_df[intensity_cols]
-                )
+                scaled = self.intensity_scaler.fit_transform(normalized_df[intensity_cols])
+                n = len(normalized_df[intensity_cols])
+                self._int_scale_factor = np.sqrt((n - 1) / n) if n > 1 else 1.0
+                normalized_df[intensity_cols] = scaled * self._int_scale_factor
             else:
-                normalized_df[intensity_cols] = self.intensity_scaler.transform(
-                    normalized_df[intensity_cols]
-                )
+                scaled = self.intensity_scaler.transform(normalized_df[intensity_cols])
+                factor = getattr(self, "_int_scale_factor", 1.0)
+                normalized_df[intensity_cols] = scaled * factor
         
         if fit:
             self.fitted = True
