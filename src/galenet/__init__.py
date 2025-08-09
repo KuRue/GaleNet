@@ -9,14 +9,7 @@ __version__ = "0.1.0"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
-# Import main components
-from .data.loaders import (
-    HURDAT2Loader,
-    IBTrACSLoader,
-    ERA5Loader,
-    HurricaneDataPipeline
-)
-
+# Import main utilities
 from .utils.config import get_config
 from .utils.logging import setup_logging
 
@@ -31,17 +24,17 @@ __all__ = [
     "__version__",
     "__author__",
     "__email__",
-    
+
     # Data loaders
     "HURDAT2Loader",
-    "IBTrACSLoader", 
+    "IBTrACSLoader",
     "ERA5Loader",
     "HurricaneDataPipeline",
-    
+
     # Utils
     "get_config",
     "setup_logging",
-    
+
     # Main pipeline
     "GaleNetPipeline",
 ]
@@ -67,14 +60,14 @@ Components:
 
 Usage:
     from galenet import HurricaneDataPipeline
-    
+
     # Load hurricane data
     pipeline = HurricaneDataPipeline()
     data = pipeline.load_hurricane_for_training(
         storm_id="AL092023",  # Hurricane Lee
         include_era5=True
     )
-    
+
     # Access track data
     track = data['track']
     era5_patches = data['era5']
