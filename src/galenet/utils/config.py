@@ -1,13 +1,13 @@
 """Configuration management for GaleNet."""
 
-from typing import Any, Dict, Optional, Union
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import Optional, Union, cast
 
-from omegaconf import OmegaConf, DictConfig
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 from loguru import logger
+from omegaconf import DictConfig, OmegaConf
 
 
 def get_config(
@@ -15,54 +15,61 @@ def get_config(
     overrides: Optional[list] = None
 ) -> DictConfig:
     """Load configuration from file or use defaults.
-    
+
     Args:
         config_path: Path to config file or name of config
         overrides: List of config overrides in Hydra format
-        
+
     Returns:
         Configuration object
     """
     if config_path is None:
         config_path = "default_config.yaml"
-    
+
     config_path = Path(config_path)
-    
+
     # Clear any existing Hydra instance
     GlobalHydra.instance().clear()
-    
+
     if config_path.exists():
         # Load from file path
         config = OmegaConf.load(config_path)
     else:
         # Try to load from configs directory
         configs_dir = Path(__file__).parent.parent.parent.parent / "configs"
-        
+
         if not configs_dir.exists():
             # Fallback to default config
             logger.warning(f"Config directory not found at {configs_dir}")
             config = get_default_config()
         else:
             # Initialize Hydra with config directory
-            with initialize_config_dir(config_dir=str(configs_dir), version_base="1.3"):
-                config = compose(config_name=str(config_path).replace('.yaml', ''), 
-                               overrides=overrides or [])
-    
+            with initialize_config_dir(
+                config_dir=str(configs_dir), version_base="1.3"
+            ):
+                config = cast(
+                    DictConfig,
+                    compose(
+                        config_name=str(config_path).replace(".yaml", ""),
+                        overrides=overrides or [],
+                    ),
+                )
+
     # Apply any overrides
     if overrides:
         for override in overrides:
             key, value = override.split('=', 1)
             OmegaConf.update(config, key, value)
-    
+
     # Set environment variables
     OmegaConf.register_new_resolver("env", lambda x: os.environ.get(x, ''))
-    
-    return config
+
+    return cast(DictConfig, config)
 
 
 def get_default_config() -> DictConfig:
     """Get default configuration.
-    
+
     Returns:
         Default configuration
     """
@@ -115,52 +122,52 @@ def get_default_config() -> DictConfig:
             }
         }
     }
-    
+
     config = OmegaConf.create(default_config)
     OmegaConf.set_struct(config, False)
-    
+
     return config
 
 
 def save_config(config: DictConfig, path: Union[str, Path]) -> None:
     """Save configuration to file.
-    
+
     Args:
         config: Configuration to save
         path: Path to save to
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(path, 'w') as f:
         OmegaConf.save(config, f)
-    
+
     logger.info(f"Configuration saved to {path}")
 
 
 def merge_configs(*configs: DictConfig) -> DictConfig:
     """Merge multiple configurations.
-    
+
     Args:
         *configs: Configurations to merge
-        
+
     Returns:
         Merged configuration
     """
-    merged = OmegaConf.create({})
-    
+    merged: DictConfig = cast(DictConfig, OmegaConf.create({}))
+
     for config in configs:
-        merged = OmegaConf.merge(merged, config)
-    
+        merged = cast(DictConfig, OmegaConf.merge(merged, config))
+
     return merged
 
 
 def validate_config(config: DictConfig) -> bool:
     """Validate configuration.
-    
+
     Args:
         config: Configuration to validate
-        
+
     Returns:
         Whether configuration is valid
     """
@@ -170,15 +177,15 @@ def validate_config(config: DictConfig) -> bool:
         "model.name",
         "training.epochs"
     ]
-    
+
     for key in required_keys:
         try:
             value = OmegaConf.select(config, key)
             if value is None:
                 logger.error(f"Missing required config key: {key}")
                 return False
-        except:
+        except Exception:
             logger.error(f"Invalid config key: {key}")
             return False
-    
+
     return True

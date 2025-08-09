@@ -1,7 +1,8 @@
 """Setup configuration for GaleNet package."""
 
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 # Read the README file
 this_directory = Path(__file__).parent
@@ -10,8 +11,8 @@ long_description = (this_directory / "README.md").read_text()
 # Read requirements
 with open("requirements.txt") as f:
     requirements = [
-        line.strip() 
-        for line in f 
+        line.strip()
+        for line in f
         if line.strip() and not line.startswith("#") and not line.startswith("git+")
     ]
 
@@ -20,7 +21,10 @@ setup(
     version="0.1.0",
     author="kurue",
     author_email="galenet@kurue.com",
-    description="GaleNet - AI-powered hurricane forecasting system using GraphCast and Pangu-Weather",
+    description=(
+        "GaleNet - AI-powered hurricane forecasting system using GraphCast "
+        "and Pangu-Weather"
+    ),
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/KuRue/GaleNet",
