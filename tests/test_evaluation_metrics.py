@@ -57,3 +57,13 @@ def test_metric_computations():
     ) <= set(results.keys())
     assert results["intensity_mae"] == pytest.approx(3.3333, rel=1e-4)
     assert results["rapid_intensification_skill"] == pytest.approx(2 / 3, rel=1e-4)
+
+
+def test_rapid_intensification_skill_no_events_or_short_seq():
+    """RI skill should be zero for short sequences or when no events occur."""
+    # Shorter than 24h window
+    assert rapid_intensification_skill([40, 80], [40, 90]) == 0.0
+
+    intens_pred = [40, 42, 43, 44, 45, 46]
+    intens_true = [40, 42, 43, 44, 45, 46]
+    assert rapid_intensification_skill(intens_pred, intens_true) == 0.0

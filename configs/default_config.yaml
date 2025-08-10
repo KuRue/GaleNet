@@ -113,9 +113,9 @@ training:
     
   # Physics-informed constraints
   physics:
-    enforce_wind_pressure: true
-    enforce_gradient_wind: true
-    max_intensification_rate: 50  # kt/24hr
+    enforce_wind_pressure: true  # TODO: implement wind-pressure consistency checks
+    enforce_gradient_wind: true  # TODO: enforce gradient wind balance
+    max_intensification_rate: 50  # kt/24hr, TODO: cap intensification in training
     
   # Checkpointing
   checkpoint:
