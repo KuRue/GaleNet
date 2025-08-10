@@ -9,16 +9,16 @@ dependencies:
   # Python version
   - python=3.10
   
-  # CUDA and GPU libraries
-  - cuda-toolkit=12.4
-  - cudnn=9.0
-  - nccl
-  
-  # PyTorch with CUDA support
-  - pytorch=2.2.*
-  - torchvision=0.17.*
-  - torchaudio=2.2.*
-  - pytorch-cuda=12.4
+  # CUDA and GPU libraries (optional)
+  # - cuda-toolkit=12.4
+  # - cudnn=9.0
+  # - nccl
+
+  # PyTorch with CUDA support (optional)
+  # - pytorch=2.2.*
+  # - torchvision=0.17.*
+  # - torchaudio=2.2.*
+  # - pytorch-cuda=12.4
   
   # Scientific computing (conda is better for these)
   - numpy<2.0
@@ -67,8 +67,8 @@ dependencies:
   # Install remaining packages with pip
   - pip:
     # JAX with CUDA support
-    - jax[cuda12_pip]
-    - jaxlib
+    # - jax[cuda12_pip]  # optional
+    # - jaxlib  # optional
     
     # AI/ML packages
     - transformers

@@ -1,13 +1,20 @@
 """Data preprocessing modules for GaleNet hurricane forecasting."""
 
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import torch
 import xarray as xr
 from loguru import logger
 from sklearn.preprocessing import StandardScaler
+
+try:  # pragma: no cover - optional dependency
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - handled in to_tensor
+    torch = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:  # pragma: no cover - for type checkers only
+    import torch as torch_typing
 
 
 class HurricanePreprocessor:
@@ -330,8 +337,8 @@ class ERA5Preprocessor:
         self,
         data: xr.Dataset,
         variables: Optional[List[str]] = None,
-        dtype: torch.dtype = torch.float32
-    ) -> torch.Tensor:
+        dtype: "Optional[torch.dtype]" = None,
+    ) -> "torch.Tensor":
         """Convert xarray dataset to PyTorch tensor.
 
         Args:
@@ -342,6 +349,9 @@ class ERA5Preprocessor:
         Returns:
             Tensor of shape (C, H, W) or (T, C, H, W) if time dimension exists
         """
+        if torch is None:
+            raise ImportError("PyTorch is required for tensor conversion")
+
         if variables is None:
             variables = list(data.data_vars)
 
@@ -354,7 +364,8 @@ class ERA5Preprocessor:
         # Stack arrays
         if arrays:
             stacked = np.stack(arrays, axis=0)
-            tensor = torch.from_numpy(stacked).to(dtype)
+            tensor_dtype = dtype or torch.float32
+            tensor = torch.from_numpy(stacked).to(tensor_dtype)
             return tensor
         else:
             raise ValueError("No valid variables found for tensor conversion")
