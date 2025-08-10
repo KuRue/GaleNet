@@ -38,3 +38,11 @@ def test_baseline_predictions():
         forecasts["ecmwf"],
         np.array([[5.9, 5.9, 50.0], [6.8, 6.8, 50.0], [7.7, 7.7, 50.0]]),
     )
+
+
+def test_gfs_ecmwf_fallback_to_persistence():
+    track = np.array([[10.0, 20.0, 60.0]])
+    forecasts = run_baselines(track, forecast_steps=2, baselines=["gfs", "ecmwf"])
+    expected = np.array([[10.0, 20.0, 60.0], [10.0, 20.0, 60.0]])
+    assert np.allclose(forecasts["gfs"], expected)
+    assert np.allclose(forecasts["ecmwf"], expected)
