@@ -32,6 +32,8 @@ data:
   
   # ERA5 settings
   era5:
+    api_url: "${oc.env:CDSAPI_URL,https://cds.climate.copernicus.eu/api/v2}"
+    api_key: "${oc.env:CDSAPI_KEY,}"
     variables:
       - "10m_u_component_of_wind"
       - "10m_v_component_of_wind"

@@ -330,37 +330,54 @@ class ERA5Loader:
             Path to downloaded file
         """
         import cdsapi
-        
+        import time
+
         if variables is None:
             variables = [
                 '10m_u_component_of_wind',
-                '10m_v_component_of_wind', 
+                '10m_v_component_of_wind',
                 'mean_sea_level_pressure',
                 '2m_temperature',
                 'sea_surface_temperature'
             ]
-        
+
         # Create filename
         date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
         filename = f"era5_{date_str}_{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
         filepath = self.cache_dir / filename
-        
+
         if filepath.exists():
             logger.info(f"ERA5 data already cached at {filepath}")
             return filepath
-        
+
         logger.info(f"Downloading ERA5 data to {filepath}")
-        
-        # Prepare request
-        c = cdsapi.Client()
-        
+
+        # Load API credentials from configuration
+        config = get_config()
+        era5_cfg = getattr(getattr(config, 'data', None), 'era5', None)
+        api_url = getattr(era5_cfg, 'api_url', None)
+        api_key = getattr(era5_cfg, 'api_key', None)
+        if not api_url or not api_key:
+            raise ValueError(
+                'ERA5 API credentials not configured. '
+                'Set data.era5.api_url and data.era5.api_key in your configuration.'
+            )
+
+        try:
+            c = cdsapi.Client(url=api_url, key=api_key, timeout=60, retry_max=0)
+        except Exception as e:
+            raise RuntimeError(
+                'Could not initialize CDS API client. '
+                'Check your ERA5 API credentials and network connectivity.'
+            ) from e
+
         # Date range
         dates = []
         current = start_date
         while current <= end_date:
             dates.append(current.strftime('%Y-%m-%d'))
             current += timedelta(days=1)
-        
+
         request = {
             'product_type': 'reanalysis',
             'format': 'netcdf',
@@ -369,12 +386,32 @@ class ERA5Loader:
             'time': [f'{h:02d}:00' for h in range(24)],
             'area': list(bounds),  # North, West, South, East
         }
-        
-        # Download
-        c.retrieve('reanalysis-era5-single-levels', request, str(filepath))
-        
-        logger.success(f"Downloaded ERA5 data to {filepath}")
-        return filepath
+
+        # Download with retries and exponential backoff
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                c.retrieve('reanalysis-era5-single-levels', request, str(filepath))
+                logger.success(f"Downloaded ERA5 data to {filepath}")
+                return filepath
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    msg = str(e).lower()
+                    if '401' in msg or 'unauthorized' in msg or 'auth' in msg:
+                        raise RuntimeError(
+                            'ERA5 download failed: invalid API credentials.'
+                        ) from e
+                    raise RuntimeError(
+                        'ERA5 download failed after multiple attempts. '
+                        'Check your network connection or API credentials.'
+                    ) from e
+
+                sleep_time = 2 ** attempt
+                logger.warning(
+                    f"ERA5 download failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                    f"Retrying in {sleep_time}s"
+                )
+                time.sleep(sleep_time)
     
     def extract_hurricane_patches(
         self,
