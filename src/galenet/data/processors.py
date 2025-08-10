@@ -263,32 +263,47 @@ class ERA5Preprocessor:
     def normalize_variables(
         self,
         data: xr.Dataset,
-        fit: bool = True
+        fit: bool = True,
+        variables: Optional[List[str]] = None,
     ) -> xr.Dataset:
         """Normalize ERA5 variables to zero mean and unit variance.
+
+        This method now supports normalizing a subset of variables rather than
+        all variables present in the dataset, which is useful when working with
+        heterogeneous collections of ERA5 fields.
 
         Args:
             data: ERA5 dataset
             fit: Whether to fit normalization parameters
+            variables: Optional list of variables to normalize.  If ``None`` all
+                variables in ``data`` will be normalized.
 
         Returns:
             Normalized dataset
         """
         normalized = data.copy()
 
-        for var in data.data_vars:
+        if variables is None:
+            variables = list(data.data_vars)
+
+        for var in variables:
+            if var not in data.data_vars:
+                # Skip variables that aren't present in the dataset
+                logger.warning(f"Variable {var} not found in data, skipping")
+                continue
+
             var_data = data[var].values
 
             if fit:
-                mean = np.nanmean(var_data)
-                std = np.nanstd(var_data)
-                self.variable_stats[var] = {'mean': mean, 'std': std}
+                mean = float(np.nanmean(var_data))
+                std = float(np.nanstd(var_data))
+                self.variable_stats[var] = {"mean": mean, "std": std}
             else:
                 if var not in self.variable_stats:
                     logger.warning(f"No normalization stats for {var}, skipping")
                     continue
-                mean = self.variable_stats[var]['mean']
-                std = self.variable_stats[var]['std']
+                mean = self.variable_stats[var]["mean"]
+                std = self.variable_stats[var]["std"]
 
             # Normalize
             normalized[var] = (data[var] - mean) / (std + 1e-8)
@@ -337,6 +352,8 @@ class ERA5Preprocessor:
         if all(var in data for var in shear_vars):
             du = data['u200'] - data['u850']
             dv = data['v200'] - data['v850']
+            enhanced['vertical_wind_shear_u'] = du
+            enhanced['vertical_wind_shear_v'] = dv
             enhanced['vertical_wind_shear'] = np.sqrt(du**2 + dv**2)
 
         # Relative humidity using 2m temperature and dew point
@@ -346,6 +363,14 @@ class ERA5Preprocessor:
             numerator = np.exp((17.625 * td_c) / (243.04 + td_c))
             denominator = np.exp((17.625 * t_c) / (243.04 + t_c))
             enhanced['relative_humidity'] = (100.0 * numerator / denominator).clip(0, 100)
+
+        # Specific humidity computed from dew point and pressure
+        if 'd2m' in data and 'msl' in data:
+            td_c = data['d2m'] - 273.15
+            # Convert pressure to hPa
+            p_hpa = data['msl'] / 100.0
+            e = 6.112 * np.exp((17.67 * td_c) / (td_c + 243.5))
+            enhanced['specific_humidity'] = (0.622 * e) / (p_hpa - 0.378 * e)
 
         return enhanced
 
