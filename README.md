@@ -160,6 +160,7 @@ docker run --gpus all -p 8000:8000 galenet:latest
 
 ## 📚 Documentation
 
+- [Data Workflow](docs/data_workflow.md)
 - [Installation Guide](docs/installation.md)
 - [API Reference](docs/api_reference.md)
 - [Model Architecture](docs/architecture.md)
