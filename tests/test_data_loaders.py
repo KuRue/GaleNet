@@ -17,7 +17,11 @@ import xarray as xr
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
-from galenet.data.loaders import HURDAT2Loader, ERA5Loader  # noqa: E402
+from galenet.data.loaders import (
+    HURDAT2Loader,
+    ERA5Loader,
+    HurricaneDataPipeline,
+)  # noqa: E402
 from galenet.data.processors import ERA5Preprocessor  # noqa: E402
 from galenet.data.processors import HurricanePreprocessor
 from galenet.data.validators import HurricaneDataValidator  # noqa: E402
@@ -99,6 +103,39 @@ def sample_era5_data():
     )
 
     return ds
+
+
+@pytest.fixture
+def multi_year_storms():
+    """Create synthetic storms across multiple years with varying intensity."""
+
+    def make_storm(storm_id, name, year, winds):
+        timestamps = pd.date_range(f"{year}-08-01", periods=len(winds), freq="6H")
+        return pd.DataFrame(
+            {
+                "timestamp": timestamps,
+                "latitude": np.linspace(10, 15, len(winds)),
+                "longitude": np.linspace(-50, -55, len(winds)),
+                "max_wind": winds,
+                "min_pressure": np.linspace(1000, 950, len(winds)),
+                "storm_id": storm_id,
+                "name": name,
+            }
+        )
+
+    storms = {
+        "AL012022": make_storm("AL012022", "ALPHA", 2022, [40, 65, 70]),
+        "AL022022": make_storm("AL022022", "BETA", 2022, [30, 35, 40]),
+        "AL012023": make_storm("AL012023", "CHARLIE", 2023, [60, 70, 80]),
+        "AL022023": make_storm("AL022023", "DELTA", 2023, [20, 25, 45]),
+    }
+
+    storms_by_year = {
+        2022: ["AL012022", "AL022022"],
+        2023: ["AL012023", "AL022023"],
+    }
+
+    return storms_by_year, storms
 
 
 class TestHURDAT2Loader:
@@ -361,6 +398,34 @@ class TestDataValidators:
 
         assert not is_valid
         assert any('wind-pressure' in error.lower() for error in errors)
+
+
+class TestHurricaneDataPipeline:
+    """Tests for the HurricaneDataPipeline utility methods."""
+
+    def test_prepare_training_dataset_filters_min_intensity(self, multi_year_storms):
+        storms_by_year, storms = multi_year_storms
+
+        pipeline = HurricaneDataPipeline.__new__(HurricaneDataPipeline)
+        pipeline.hurdat2 = MagicMock()
+        pipeline.hurdat2.get_storms_by_year.side_effect = lambda y: storms_by_year.get(y, [])
+        pipeline.hurdat2.get_storm.side_effect = lambda sid: storms[sid]
+
+        result = pipeline.prepare_training_dataset([2022, 2023], min_intensity=64)
+        assert set(result["storm_id"]) == {"AL012022", "AL012023"}
+
+        expected_cols = {
+            "storm_id",
+            "name",
+            "year",
+            "max_intensity",
+            "min_pressure",
+            "num_records",
+        }
+        assert set(result.columns) == expected_cols
+
+        empty = pipeline.prepare_training_dataset([2022, 2023], min_intensity=200)
+        assert empty.empty
 
 
 class TestERA5Loader:
