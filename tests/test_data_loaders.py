@@ -3,8 +3,12 @@
 
 import sys
 import tempfile
+from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+import cdsapi
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,7 +17,7 @@ import xarray as xr
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
-from galenet.data.loaders import HURDAT2Loader  # noqa: E402
+from galenet.data.loaders import HURDAT2Loader, ERA5Loader  # noqa: E402
 from galenet.data.processors import ERA5Preprocessor  # noqa: E402
 from galenet.data.processors import HurricanePreprocessor
 from galenet.data.validators import HurricaneDataValidator  # noqa: E402
@@ -310,6 +314,62 @@ class TestDataValidators:
         assert not is_valid
         assert any('wind-pressure' in error.lower() for error in errors)
 
+
+class TestERA5Loader:
+    """Tests for ERA5Loader retry logic and error handling."""
+
+    def _mock_config(self):
+        era5 = SimpleNamespace(api_url="http://example.com", api_key="dummy")
+        data = SimpleNamespace(era5=era5)
+        return SimpleNamespace(data=data)
+
+    def test_download_retries(self, tmp_path, monkeypatch):
+        """Ensure download retries on failure."""
+        monkeypatch.setattr(
+            'galenet.data.loaders.get_config',
+            lambda *args, **kwargs: self._mock_config(),
+        )
+
+        mock_client = MagicMock()
+        mock_client.retrieve.side_effect = [Exception('boom'), None]
+        monkeypatch.setattr(cdsapi, 'Client', lambda **kwargs: mock_client)
+        monkeypatch.setattr('time.sleep', lambda s: None)
+
+        loader = ERA5Loader(cache_dir=tmp_path)
+
+        loader.download_data(
+            datetime(2023, 1, 1),
+            datetime(2023, 1, 1),
+            (10, -20, 5, -15),
+            variables=['var'],
+        )
+
+        assert mock_client.retrieve.call_count == 2
+
+    def test_download_failure_propagates_error(self, tmp_path, monkeypatch):
+        """Ensure errors propagate after max retries."""
+        monkeypatch.setattr(
+            'galenet.data.loaders.get_config',
+            lambda *args, **kwargs: self._mock_config(),
+        )
+
+        mock_client = MagicMock()
+        mock_client.retrieve.side_effect = Exception('401 Unauthorized')
+        monkeypatch.setattr(cdsapi, 'Client', lambda **kwargs: mock_client)
+        monkeypatch.setattr('time.sleep', lambda s: None)
+
+        loader = ERA5Loader(cache_dir=tmp_path)
+
+        with pytest.raises(RuntimeError) as exc:
+            loader.download_data(
+                datetime(2023, 1, 1),
+                datetime(2023, 1, 1),
+                (10, -20, 5, -15),
+                variables=['var'],
+            )
+
+        assert 'API credentials' in str(exc.value)
+        assert mock_client.retrieve.call_count == 3
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
