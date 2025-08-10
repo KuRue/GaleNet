@@ -4,7 +4,7 @@
 defaults:
   - _self_
   - data: era5
-  - model: ensemble
+  # - model: ensemble  # TODO: add Hydra model configs when multiple models available
   - training: default
   - override hydra/launcher: basic
 
@@ -56,7 +56,7 @@ data:
 # Model configuration
 model:
   # Model selection
-  name: "hurricane_ensemble"  # Options: graphcast, pangu, hurricane_cnn, ensemble
+  name: "graphcast"  # Options: graphcast (implemented); pangu, hurricane_cnn, ensemble planned
   
   # GraphCast settings
   graphcast:
@@ -67,6 +67,7 @@ model:
     num_heads: 8
     
   # Pangu-Weather settings
+  # TODO: Implement Pangu-Weather model support
   pangu:
     checkpoint_path: "${data.root_dir}/models/pangu/weights.pt"
     patch_size: 4
@@ -74,6 +75,7 @@ model:
     num_heads: 16
     
   # Hurricane CNN-Transformer
+  # TODO: Implement Hurricane CNN-Transformer model
   hurricane_cnn:
     encoder_layers: 6
     decoder_layers: 6
@@ -82,6 +84,7 @@ model:
     dropout: 0.1
     
   # Ensemble settings
+  # TODO: Implement ensemble model options
   ensemble:
     size: 50
     method: "perturbation"  # perturbation, dropout, multi_model

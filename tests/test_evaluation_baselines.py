@@ -17,7 +17,11 @@ def test_baseline_predictions():
         [4.0, 4.0, 48.0],
         [5.0, 5.0, 50.0],
     ])
-    forecasts = run_baselines(track, forecast_steps=3, baselines=["persistence", "cliper5"])
+    forecasts = run_baselines(
+        track,
+        forecast_steps=3,
+        baselines=["persistence", "cliper5", "gfs", "ecmwf"],
+    )
     assert np.allclose(
         forecasts["persistence"],
         np.array([[5.0, 5.0, 50.0], [5.0, 5.0, 50.0], [5.0, 5.0, 50.0]]),
@@ -25,4 +29,12 @@ def test_baseline_predictions():
     assert np.allclose(
         forecasts["cliper5"],
         np.array([[6.0, 6.0, 50.0], [7.0, 7.0, 50.0], [8.0, 8.0, 50.0]]),
+    )
+    assert np.allclose(
+        forecasts["gfs"],
+        np.array([[6.1, 6.1, 50.0], [7.2, 7.2, 50.0], [8.3, 8.3, 50.0]]),
+    )
+    assert np.allclose(
+        forecasts["ecmwf"],
+        np.array([[5.9, 5.9, 50.0], [6.8, 6.8, 50.0], [7.7, 7.7, 50.0]]),
     )

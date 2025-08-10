@@ -41,9 +41,53 @@ def cliper5_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> n
     return np.stack(preds, axis=0)
 
 
+def gfs_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.ndarray:
+    """GFS-like baseline using slightly accelerated motion."""
+    track_arr = np.asarray(track)
+    if len(track_arr) < 2:
+        return persistence_baseline(track_arr, forecast_steps)
+
+    displacements = np.diff(track_arr[:, :2], axis=0)
+    if len(displacements) >= 5:
+        mean_disp = displacements[-5:].mean(axis=0)
+    else:
+        mean_disp = displacements.mean(axis=0)
+
+    last_pos = track_arr[-1, :2]
+    intensity = track_arr[-1, 2]
+    preds = []
+    for step in range(1, forecast_steps + 1):
+        pos = last_pos + mean_disp * 1.1 * step
+        preds.append(np.array([pos[0], pos[1], intensity]))
+    return np.stack(preds, axis=0)
+
+
+def ecmwf_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.ndarray:
+    """ECMWF-like baseline using slightly slower motion."""
+    track_arr = np.asarray(track)
+    if len(track_arr) < 2:
+        return persistence_baseline(track_arr, forecast_steps)
+
+    displacements = np.diff(track_arr[:, :2], axis=0)
+    if len(displacements) >= 5:
+        mean_disp = displacements[-5:].mean(axis=0)
+    else:
+        mean_disp = displacements.mean(axis=0)
+
+    last_pos = track_arr[-1, :2]
+    intensity = track_arr[-1, 2]
+    preds = []
+    for step in range(1, forecast_steps + 1):
+        pos = last_pos + mean_disp * 0.9 * step
+        preds.append(np.array([pos[0], pos[1], intensity]))
+    return np.stack(preds, axis=0)
+
+
 BASELINE_FUNCTIONS = {
     "persistence": persistence_baseline,
     "cliper5": cliper5_baseline,
+    "gfs": gfs_baseline,
+    "ecmwf": ecmwf_baseline,
 }
 
 

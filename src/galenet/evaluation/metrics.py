@@ -95,11 +95,54 @@ def intensity_mae(pred: Sequence[float], truth: Sequence[float]) -> float:
     return float(np.mean(np.abs(pred_arr - truth_arr)))
 
 
+def rapid_intensification_skill(
+    pred: Sequence[float], truth: Sequence[float]
+) -> float:
+    """F1 skill score for predicting rapid intensification events.
+
+    A rapid intensification (RI) event is defined as an increase in
+    intensity of at least ``30`` kt over a 24 hour window (four 6 hour
+    steps). The skill score measures how well the forecast identifies RI
+    events compared to the truth using the F1 formulation.
+
+    Args:
+        pred: Sequence of predicted intensity values at 6-hourly steps.
+        truth: Sequence of observed intensity values at 6-hourly steps.
+
+    Returns:
+        F1 score between 0 and 1. Returns 0.0 when no RI events are
+        present in either prediction or truth or when precision/recall
+        are undefined.
+    """
+    pred_arr = np.asarray(pred)
+    truth_arr = np.asarray(truth)
+
+    if len(pred_arr) < 5 or len(truth_arr) < 5:
+        return 0.0
+
+    pred_events = (pred_arr[4:] - pred_arr[:-4]) >= 30
+    truth_events = (truth_arr[4:] - truth_arr[:-4]) >= 30
+
+    tp = np.sum(pred_events & truth_events)
+    fp = np.sum(pred_events & ~truth_events)
+    fn = np.sum(~pred_events & truth_events)
+
+    if tp == 0:
+        return 0.0
+
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    if precision + recall == 0:
+        return 0.0
+    return float(2 * precision * recall / (precision + recall))
+
+
 METRIC_FUNCTIONS = {
     "track_error": track_error,
     "along_track_error": along_track_error,
     "cross_track_error": cross_track_error,
     "intensity_mae": intensity_mae,
+    "rapid_intensification_skill": rapid_intensification_skill,
 }
 
 
@@ -129,7 +172,7 @@ def compute_metrics(
         func = METRIC_FUNCTIONS.get(name)
         if func is None:
             continue
-        if name == "intensity_mae":
+        if name in {"intensity_mae", "rapid_intensification_skill"}:
             results[name] = func(intensity_pred, intensity_truth)
         else:
             results[name] = func(track_pred, track_truth)

@@ -11,6 +11,7 @@ from galenet.evaluation.metrics import (
     along_track_error,
     cross_track_error,
     intensity_mae,
+    rapid_intensification_skill,
     compute_metrics,
 )
 
@@ -37,12 +38,22 @@ def test_metric_computations():
     assert along_track_error(pred, truth) == pytest.approx(55.5, rel=0.02)
     assert cross_track_error(pred, truth) == pytest.approx(111.0, rel=0.02)
 
-    intens_pred = np.array([50.0, 60.0])
-    intens_true = np.array([52.0, 58.0])
-    assert intensity_mae(intens_pred, intens_true) == pytest.approx(2.0)
+    intens_pred = np.array([40.0, 45.0, 50.0, 55.0, 65.0, 90.0])
+    intens_true = np.array([40.0, 45.0, 50.0, 55.0, 70.0, 75.0])
+    assert intensity_mae(intens_pred, intens_true) == pytest.approx(3.3333, rel=1e-4)
+    assert rapid_intensification_skill(intens_pred, intens_true) == pytest.approx(
+        2 / 3, rel=1e-4
+    )
 
     results = compute_metrics(pred, truth, intens_pred, intens_true)
-    assert set(["track_error", "along_track_error", "cross_track_error", "intensity_mae"]) <= set(
-        results.keys()
-    )
-    assert results["intensity_mae"] == pytest.approx(2.0)
+    assert set(
+        [
+            "track_error",
+            "along_track_error",
+            "cross_track_error",
+            "intensity_mae",
+            "rapid_intensification_skill",
+        ]
+    ) <= set(results.keys())
+    assert results["intensity_mae"] == pytest.approx(3.3333, rel=1e-4)
+    assert results["rapid_intensification_skill"] == pytest.approx(2 / 3, rel=1e-4)
