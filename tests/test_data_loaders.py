@@ -299,7 +299,10 @@ class TestERA5Preprocessor:
         assert 'vorticity_10m' in enhanced
         assert 'convergence_10m' in enhanced
         assert 'vertical_wind_shear' in enhanced
+        assert 'vertical_wind_shear_u' in enhanced
+        assert 'vertical_wind_shear_v' in enhanced
         assert 'relative_humidity' in enhanced
+        assert 'specific_humidity' in enhanced
 
         # Check wind speed calculation
         expected_speed = np.sqrt(patch['u10']**2 + patch['v10']**2)
@@ -316,6 +319,16 @@ class TestERA5Preprocessor:
             expected_shear.values,
             rtol=1e-5
         )
+        np.testing.assert_allclose(
+            enhanced['vertical_wind_shear_u'].values,
+            (patch['u200'] - patch['u850']).values,
+            rtol=1e-5,
+        )
+        np.testing.assert_allclose(
+            enhanced['vertical_wind_shear_v'].values,
+            (patch['v200'] - patch['v850']).values,
+            rtol=1e-5,
+        )
 
         # Check relative humidity calculation
         t_c = patch['t2m'] - 273.15
@@ -327,6 +340,17 @@ class TestERA5Preprocessor:
             enhanced['relative_humidity'].values,
             expected_rh.values,
             rtol=1e-5
+        )
+
+        # Check specific humidity calculation
+        td_c = patch['d2m'] - 273.15
+        p_hpa = patch['msl'] / 100.0
+        e = 6.112 * np.exp((17.67 * td_c) / (td_c + 243.5))
+        expected_q = (0.622 * e) / (p_hpa - 0.378 * e)
+        np.testing.assert_allclose(
+            enhanced['specific_humidity'].values,
+            expected_q.values,
+            rtol=1e-5,
         )
 
     def test_variable_stats_persistence(self, sample_era5_data, tmp_path):
@@ -349,6 +373,33 @@ class TestERA5Preprocessor:
         new_preprocessor.load_stats(stats_file)
         for key in enhanced.data_vars:
             assert key in new_preprocessor.variable_stats
+
+    def test_multi_variable_normalization(self, sample_era5_data):
+        """Ensure multiple variables are normalized correctly."""
+        preprocessor = ERA5Preprocessor()
+        patch = preprocessor.extract_patches(
+            sample_era5_data,
+            center_lat=20.0,
+            center_lon=-55.0,
+            patch_size=10.0,
+        )
+        enhanced = preprocessor.compute_derived_fields(patch)
+
+        vars_to_norm = ['u10', 'v10', 'specific_humidity', 'vertical_wind_shear']
+        normalized = preprocessor.normalize_variables(enhanced, fit=True, variables=vars_to_norm)
+
+        for var in vars_to_norm:
+            np.testing.assert_allclose(float(normalized[var].mean()), 0.0, atol=1e-6)
+            np.testing.assert_allclose(float(normalized[var].std()), 1.0, atol=1e-6)
+
+        # Apply again without fitting to ensure same result
+        normalized2 = preprocessor.normalize_variables(enhanced, fit=False, variables=vars_to_norm)
+        for var in vars_to_norm:
+            np.testing.assert_allclose(
+                normalized[var].values,
+                normalized2[var].values,
+                rtol=1e-6,
+            )
 
 
 class TestDataValidators:

@@ -333,13 +333,36 @@ class ERA5Loader:
         import time
 
         if variables is None:
-            variables = [
+            # Default variables required by the preprocessing pipeline.  This
+            # includes both single-level fields and pressure-level winds used to
+            # compute vertical shear and humidity-related diagnostics.
+            single_level_vars = [
                 '10m_u_component_of_wind',
                 '10m_v_component_of_wind',
                 'mean_sea_level_pressure',
                 '2m_temperature',
-                'sea_surface_temperature'
+                '2m_dewpoint_temperature',
+                'sea_surface_temperature',
             ]
+            pressure_level_vars = ['u_component_of_wind', 'v_component_of_wind']
+            pressure_levels = ['200', '850']
+        else:
+            # Separate provided variables into single-level and pressure-level
+            single_level_vars = []
+            pressure_level_vars = []
+            for var in variables:
+                if var in {
+                    '10m_u_component_of_wind',
+                    '10m_v_component_of_wind',
+                    'mean_sea_level_pressure',
+                    '2m_temperature',
+                    '2m_dewpoint_temperature',
+                    'sea_surface_temperature',
+                }:
+                    single_level_vars.append(var)
+                else:
+                    pressure_level_vars.append(var)
+            pressure_levels = ['200', '850'] if pressure_level_vars else []
 
         # Create filename
         date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
@@ -378,40 +401,96 @@ class ERA5Loader:
             dates.append(current.strftime('%Y-%m-%d'))
             current += timedelta(days=1)
 
-        request = {
-            'product_type': 'reanalysis',
-            'format': 'netcdf',
-            'variable': variables,
-            'date': dates,
-            'time': [f'{h:02d}:00' for h in range(24)],
-            'area': list(bounds),  # North, West, South, East
-        }
-
-        # Download with retries and exponential backoff
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                c.retrieve('reanalysis-era5-single-levels', request, str(filepath))
-                logger.success(f"Downloaded ERA5 data to {filepath}")
-                return filepath
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    msg = str(e).lower()
-                    if '401' in msg or 'unauthorized' in msg or 'auth' in msg:
-                        raise RuntimeError(
-                            'ERA5 download failed: invalid API credentials.'
-                        ) from e
-                    raise RuntimeError(
-                        'ERA5 download failed after multiple attempts. '
-                        'Check your network connection or API credentials.'
-                    ) from e
-
-                sleep_time = 2 ** attempt
-                logger.warning(
-                    f"ERA5 download failed (attempt {attempt + 1}/{max_retries}): {e}. "
-                    f"Retrying in {sleep_time}s"
+        # Build requests for single-level and pressure-level datasets
+        requests = []
+        if single_level_vars:
+            requests.append(
+                (
+                    'reanalysis-era5-single-levels',
+                    {
+                        'product_type': 'reanalysis',
+                        'format': 'netcdf',
+                        'variable': single_level_vars,
+                        'date': dates,
+                        'time': [f'{h:02d}:00' for h in range(24)],
+                        'area': list(bounds),
+                    },
+                    filepath.with_suffix('.single.nc'),
                 )
-                time.sleep(sleep_time)
+            )
+
+        if pressure_level_vars:
+            requests.append(
+                (
+                    'reanalysis-era5-pressure-levels',
+                    {
+                        'product_type': 'reanalysis',
+                        'format': 'netcdf',
+                        'variable': pressure_level_vars,
+                        'pressure_level': pressure_levels,
+                        'date': dates,
+                        'time': [f'{h:02d}:00' for h in range(24)],
+                        'area': list(bounds),
+                    },
+                    filepath.with_suffix('.pressure.nc'),
+                )
+            )
+
+        # Download with retries and exponential backoff for each request
+        for dataset_name, request, outpath in requests:
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    c.retrieve(dataset_name, request, str(outpath))
+                    logger.success(f"Downloaded ERA5 data to {outpath}")
+                    break
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        msg = str(e).lower()
+                        if '401' in msg or 'unauthorized' in msg or 'auth' in msg:
+                            raise RuntimeError(
+                                'ERA5 download failed: invalid API credentials.'
+                            ) from e
+                        raise RuntimeError(
+                            'ERA5 download failed after multiple attempts. '
+                            'Check your network connection or API credentials.'
+                        ) from e
+
+                    sleep_time = 2 ** attempt
+                    logger.warning(
+                        f"ERA5 download failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                        f"Retrying in {sleep_time}s"
+                    )
+                    time.sleep(sleep_time)
+
+        # Merge the downloaded datasets into a single file
+        datasets = []
+        for _, _, outpath in requests:
+            if outpath.exists():
+                datasets.append(xr.open_dataset(outpath))
+
+        if datasets:
+            merged = xr.merge(datasets)
+
+            # If pressure level data were retrieved, rename to u200/v200/u850/v850
+            if pressure_level_vars:
+                for level in pressure_levels:
+                    lvl = int(level)
+                    if 'u_component_of_wind' in merged and 'v_component_of_wind' in merged:
+                        u = merged['u_component_of_wind'].sel(pressure_level=lvl).drop('pressure_level')
+                        v = merged['v_component_of_wind'].sel(pressure_level=lvl).drop('pressure_level')
+                        merged[f'u{level}'] = u
+                        merged[f'v{level}'] = v
+                merged = merged.drop_vars([v for v in ['u_component_of_wind', 'v_component_of_wind'] if v in merged])
+
+            merged.to_netcdf(filepath)
+
+        # Clean up temporary files
+        for _, _, outpath in requests:
+            if outpath.exists():
+                outpath.unlink()
+
+        return filepath
     
     def extract_hurricane_patches(
         self,
