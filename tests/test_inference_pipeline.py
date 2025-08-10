@@ -73,6 +73,11 @@ def test_forecast_length_matches_hours(monkeypatch, sample_track):
         "galenet.inference.pipeline.HurricaneDataPipeline", DummyDataPipeline
     )
 
+    config = OmegaConf.load(CONFIG_PATH)
+    config.model.name = "hurricane_ensemble"
+    monkeypatch.setattr(
+        "galenet.inference.pipeline.get_config", lambda *a, **k: config
+    )
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
     monkeypatch.setattr(
         pipeline.model,
@@ -105,6 +110,11 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
         "galenet.inference.pipeline.HurricaneDataPipeline", DummyDataPipeline
     )
 
+    config = OmegaConf.load(CONFIG_PATH)
+    config.model.name = "hurricane_ensemble"
+    monkeypatch.setattr(
+        "galenet.inference.pipeline.get_config", lambda *a, **k: config
+    )
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
     monkeypatch.setattr(
         pipeline.model,
@@ -141,14 +151,22 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
     assert any("bad track" in w for w in warnings)
 
 
-def test_graphcast_model_smoke(monkeypatch, tmp_path, sample_track):
-    """Ensure the pipeline instantiates and runs the GraphCast model."""
+def test_graphcast_deterministic_forecast(monkeypatch, tmp_path, sample_track):
+    """Pipeline produces deterministic forecasts with GraphCast weights."""
 
-    # Create a dummy checkpoint file for GraphCast
+    # Create a tiny GraphCast-style checkpoint implementing an identity layer
     ckpt_path = tmp_path / "params.npz"
-    np.savez(ckpt_path, weights=np.array([1]))
+    from graphcast import checkpoint as gc_checkpoint
 
-    # Load base config and override model settings
+    with ckpt_path.open("wb") as f:
+        gc_checkpoint.dump(
+            f,
+            {
+                "w": np.eye(4, dtype=np.float32),
+                "b": np.zeros(4, dtype=np.float32),
+            },
+        )
+
     config = OmegaConf.load(CONFIG_PATH)
     config.model.name = "graphcast"
     config.model.graphcast.checkpoint_path = str(ckpt_path)
@@ -171,14 +189,22 @@ def test_graphcast_model_smoke(monkeypatch, tmp_path, sample_track):
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
     assert isinstance(pipeline.model, GraphCastModel)
 
+    # Simplify preprocessing and validation
     monkeypatch.setattr(
         pipeline.preprocessor, "normalize_track_data", lambda track, fit=False: track
     )
     monkeypatch.setattr(
-        pipeline.model,
-        "predict",
-        lambda features, num_steps, step: _mock_model_predict(num_steps),
+        pipeline.preprocessor, "create_track_features", lambda df: df
     )
+    monkeypatch.setattr(pipeline.validator, "validate_track", lambda df: (True, []))
 
-    result = pipeline.forecast_storm("AL012023", forecast_hours=6)
-    assert len(result.track) == len(sample_track) + 1
+    result1 = pipeline.forecast_storm("AL012023", forecast_hours=6)
+    result2 = pipeline.forecast_storm("AL012023", forecast_hours=6)
+
+    # Forecast should be deterministic and replicate the last observation
+    pd.testing.assert_frame_equal(result1.track, result2.track)
+    last_obs = sample_track.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
+    forecast_row = result1.track.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
+    assert np.allclose(
+        forecast_row.to_numpy(dtype=float), last_obs.to_numpy(dtype=float)
+    )

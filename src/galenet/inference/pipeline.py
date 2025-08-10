@@ -89,9 +89,9 @@ class GaleNetPipeline:
             checkpoint = getattr(graphcast_cfg, "checkpoint_path", "")
             try:
                 return GraphCastModel(checkpoint)
-            except Exception as exc:  # pragma: no cover - fallback path
-                logger.warning("Failed to load GraphCast model: {}", exc)
-                return _PersistenceModel()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Failed to load GraphCast model: {}", exc)
+                raise RuntimeError("GraphCast model could not be initialized") from exc
 
         if model_name in {"hurricane_ensemble", "ensemble"}:
             return _PersistenceModel()
