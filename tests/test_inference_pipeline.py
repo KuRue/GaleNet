@@ -13,6 +13,7 @@ from omegaconf import OmegaConf
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from galenet.inference.pipeline import GaleNetPipeline  # noqa: E402
+from galenet.models.graphcast import GraphCastModel  # noqa: E402
 
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "default_config.yaml"
@@ -138,3 +139,46 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
     assert list(result.track["lead_time"].tail(2).astype(int)) == [24, 30]
     # The validator failure should trigger a warning
     assert any("bad track" in w for w in warnings)
+
+
+def test_graphcast_model_smoke(monkeypatch, tmp_path, sample_track):
+    """Ensure the pipeline instantiates and runs the GraphCast model."""
+
+    # Create a dummy checkpoint file for GraphCast
+    ckpt_path = tmp_path / "params.npz"
+    np.savez(ckpt_path, weights=np.array([1]))
+
+    # Load base config and override model settings
+    config = OmegaConf.load(CONFIG_PATH)
+    config.model.name = "graphcast"
+    config.model.graphcast.checkpoint_path = str(ckpt_path)
+
+    monkeypatch.setattr(
+        "galenet.inference.pipeline.get_config", lambda *args, **kwargs: config
+    )
+
+    class DummyDataPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load_hurricane_for_training(self, storm_id, source="hurdat2", include_era5=False):
+            return {"track": sample_track}
+
+    monkeypatch.setattr(
+        "galenet.inference.pipeline.HurricaneDataPipeline", DummyDataPipeline
+    )
+
+    pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
+    assert isinstance(pipeline.model, GraphCastModel)
+
+    monkeypatch.setattr(
+        pipeline.preprocessor, "normalize_track_data", lambda track, fit=False: track
+    )
+    monkeypatch.setattr(
+        pipeline.model,
+        "predict",
+        lambda features, num_steps, step: _mock_model_predict(num_steps),
+    )
+
+    result = pipeline.forecast_storm("AL012023", forecast_hours=6)
+    assert len(result.track) == len(sample_track) + 1
