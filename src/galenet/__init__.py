@@ -21,11 +21,8 @@ from .data import (
     IBTrACSLoader,
 )
 
-# Main pipeline (will be implemented in later phases)
-try:
-    from .inference.pipeline import GaleNetPipeline
-except ImportError:
-    GaleNetPipeline = None
+# Main pipeline
+from .inference.pipeline import GaleNetPipeline
 
 __all__ = [
     # Version info
