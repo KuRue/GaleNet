@@ -7,11 +7,12 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Initial data loaders for HURDAT2 and IBTrACS hurricane track datasets.
 - Early preprocessing utilities and validation helpers implemented.
 - Repository tooling for testing, linting, and packaging configured.
+- Expanded preprocessing and feature engineering for ERA5 dataset.
+- Evaluation framework and benchmarking suite established.
 
 ## Remaining Milestones
-- Expand preprocessing and feature engineering for additional datasets (e.g., ERA5).
-- Implement training loop for GraphCast/Pangu-based models.
-- Establish evaluation framework and benchmarking suite.
+- Develop full training loop for GraphCast/Pangu-based models.
+- Achieve full GraphCast integration into the pipeline.
 - Build comprehensive documentation and usage examples.
 
 ## Phase Goals
