@@ -13,6 +13,14 @@ __email__ = "your.email@example.com"
 from .utils.config import get_config
 from .utils.logging import setup_logging
 
+# Re-export data utilities
+from .data import (
+    ERA5Loader,
+    HURDAT2Loader,
+    HurricaneDataPipeline,
+    IBTrACSLoader,
+)
+
 # Main pipeline (will be implemented in later phases)
 try:
     from .inference.pipeline import GaleNetPipeline
