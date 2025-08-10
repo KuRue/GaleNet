@@ -84,6 +84,11 @@ def sample_era5_data():
             'v10': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
             'msl': xr.DataArray(np.random.randn(*shape) * 10 + 1013, dims=['time', 'latitude', 'longitude']),
             't2m': xr.DataArray(np.random.randn(*shape) * 5 + 298, dims=['time', 'latitude', 'longitude']),
+            'd2m': xr.DataArray(np.random.randn(*shape) * 5 + 293, dims=['time', 'latitude', 'longitude']),
+            'u200': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
+            'v200': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
+            'u850': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
+            'v850': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
             'sst': xr.DataArray(np.random.randn(*shape) * 2 + 300, dims=['time', 'latitude', 'longitude']),
         },
         coords={
@@ -256,6 +261,8 @@ class TestERA5Preprocessor:
         assert 'wind_direction' in enhanced
         assert 'vorticity_10m' in enhanced
         assert 'convergence_10m' in enhanced
+        assert 'vertical_wind_shear' in enhanced
+        assert 'relative_humidity' in enhanced
 
         # Check wind speed calculation
         expected_speed = np.sqrt(patch['u10']**2 + patch['v10']**2)
@@ -264,6 +271,47 @@ class TestERA5Preprocessor:
             expected_speed.values,
             rtol=1e-5
         )
+
+        # Check vertical wind shear calculation
+        expected_shear = np.sqrt((patch['u200'] - patch['u850'])**2 + (patch['v200'] - patch['v850'])**2)
+        np.testing.assert_allclose(
+            enhanced['vertical_wind_shear'].values,
+            expected_shear.values,
+            rtol=1e-5
+        )
+
+        # Check relative humidity calculation
+        t_c = patch['t2m'] - 273.15
+        td_c = patch['d2m'] - 273.15
+        expected_rh = 100.0 * np.exp((17.625 * td_c) / (243.04 + td_c)) / np.exp((17.625 * t_c) / (243.04 + t_c))
+        expected_rh = xr.where(expected_rh > 100, 100, expected_rh)
+        expected_rh = xr.where(expected_rh < 0, 0, expected_rh)
+        np.testing.assert_allclose(
+            enhanced['relative_humidity'].values,
+            expected_rh.values,
+            rtol=1e-5
+        )
+
+    def test_variable_stats_persistence(self, sample_era5_data, tmp_path):
+        """Ensure stats include derived variables and can be saved/loaded."""
+        preprocessor = ERA5Preprocessor()
+        patch = preprocessor.extract_patches(
+            sample_era5_data,
+            center_lat=20.0,
+            center_lon=-55.0,
+            patch_size=10.0,
+        )
+        enhanced = preprocessor.compute_derived_fields(patch)
+        preprocessor.normalize_variables(enhanced, fit=True)
+
+        stats_file = tmp_path / "stats.json"
+        preprocessor.save_stats(stats_file)
+        assert stats_file.exists()
+
+        new_preprocessor = ERA5Preprocessor()
+        new_preprocessor.load_stats(stats_file)
+        for key in enhanced.data_vars:
+            assert key in new_preprocessor.variable_stats
 
 
 class TestDataValidators:

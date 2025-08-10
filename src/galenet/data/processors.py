@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
+import json
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -331,7 +332,32 @@ class ERA5Preprocessor:
             # Simplified calculation
             enhanced['theta'] = data['t2m'] * (1000.0 / data['msl'])**(287.0/1004.0)
 
+        # Vertical wind shear between 200 hPa and 850 hPa
+        shear_vars = ['u200', 'v200', 'u850', 'v850']
+        if all(var in data for var in shear_vars):
+            du = data['u200'] - data['u850']
+            dv = data['v200'] - data['v850']
+            enhanced['vertical_wind_shear'] = np.sqrt(du**2 + dv**2)
+
+        # Relative humidity using 2m temperature and dew point
+        if 't2m' in data and 'd2m' in data:
+            t_c = data['t2m'] - 273.15
+            td_c = data['d2m'] - 273.15
+            numerator = np.exp((17.625 * td_c) / (243.04 + td_c))
+            denominator = np.exp((17.625 * t_c) / (243.04 + t_c))
+            enhanced['relative_humidity'] = (100.0 * numerator / denominator).clip(0, 100)
+
         return enhanced
+
+    def save_stats(self, path: str) -> None:
+        """Persist variable statistics to disk as JSON."""
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(self.variable_stats, f)
+
+    def load_stats(self, path: str) -> None:
+        """Load variable statistics from a JSON file."""
+        with open(path, 'r', encoding='utf-8') as f:
+            self.variable_stats = json.load(f)
 
     def to_tensor(
         self,
