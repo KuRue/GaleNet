@@ -127,9 +127,9 @@ docker run --gpus all -p 8000:8000 galenet:latest
 ### Phase 1: Foundation ✅ **In Progress**
 - [x] Project structure setup
 - [x] Environment configuration
-- [ ] Data pipeline implementation 
-- [ ] GraphCast integration 
-- [ ] Baseline validation 
+- [ ] ERA5 loader completion *(in progress)*
+- [ ] GraphCast preprocessing *(pending)*
+- [ ] Initial evaluation scripts *(pending)*
 
 ### Phase 2: Model Development 📋 **Planned**
 - [ ] CNN-Transformer implementation
