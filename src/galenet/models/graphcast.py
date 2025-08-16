@@ -1,42 +1,73 @@
-"""Lightweight GraphCast-style model for testing.
+"""GraphCast model wrapper for GaleNet.
 
-This module provides a tiny reimplementation of the GraphCast interface that is
-sufficient for unit tests.  The real GraphCast model from DeepMind operates on
-large climate tensors and requires specialised infrastructure.  For GaleNet we
-only need a deterministic and fast component that mimics loading a checkpoint
-and running inference on climate data.
+This module provides a very small but reasonably faithful reimplementation of
+`GraphCast <https://github.com/deepmind/graphcast>`_.  The real GraphCast model
+from DeepMind is a large JAX model operating on global climate tensors.  For
+testing and lightweight inference inside GaleNet we only require a deterministic
+component that can load a checkpoint and perform forward passes on NumPy or
+``xarray`` tensors.  The implementation below mimics the public interface of the
+official model closely enough for our purposes.
 
-The checkpoint is expected to be a ``.npz`` file containing two arrays:
-``w`` with shape ``(C, C)`` and ``b`` with shape ``(C,)``.  The model applies
-``x @ w + b`` along the feature dimension where ``C`` is the number of climate
-channels.  The public :meth:`infer` method operates on arbitrary climate
-``numpy.ndarray`` tensors while :meth:`predict` exposes a minimal hurricane track
-forecasting interface used by :class:`galenet.inference.pipeline.GaleNetPipeline`.
+The expected checkpoint format is a ``.npz`` file containing two arrays:
+
+``w``
+    Weight matrix with shape ``(C, C)`` where ``C`` is the number of climate
+    channels.
+``b``
+    Bias vector with shape ``(C,)``.
+
+These arrays are applied as ``x @ w + b`` along the feature dimension of the
+input tensor.  Checkpoints exported from the official DeepMind implementation
+contain a nested ``params`` dictionary; this wrapper understands both the simple
+``w``/``b`` format used in the tests and the nested format by looking for these
+keys during loading.
+
+Two public methods are exposed:
+
+``infer``
+    Applies the linear transform to a NumPy ``ndarray`` or an ``xarray``
+    ``DataArray`` and returns an object of the same type.
+
+``predict``
+    Provides a minimal hurricane-track forecasting interface compatible with
+    :class:`galenet.inference.pipeline.GaleNetPipeline`.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
+import xarray as xr
+
+ArrayLike = Union[np.ndarray, xr.DataArray]
 
 
 class GraphCastModel:
     """Minimal GraphCast-style model based on a single linear layer."""
 
-    def __init__(self, checkpoint_path: str) -> None:
+    def __init__(self, checkpoint_path: str | Path) -> None:
         path = Path(checkpoint_path)
-        if not path.exists():  # pragma: no cover - defensive
+        if not path.exists():  # pragma: no cover - defensive programming
             raise FileNotFoundError(f"GraphCast checkpoint not found at {path}")
 
-        data = np.load(path)
-        try:
-            self.w = np.asarray(data["w"], dtype=np.float32)
-            self.b = np.asarray(data["b"], dtype=np.float32)
-        except KeyError as exc:  # pragma: no cover - defensive
-            raise ValueError("Invalid GraphCast checkpoint format") from exc
+        data = np.load(path, allow_pickle=True)
+
+        # DeepMind checkpoints often store parameters in a nested ``params``
+        # dictionary.  For our simplified tests we also support direct ``w`` and
+        # ``b`` arrays.
+        if "w" in data and "b" in data:
+            w, b = data["w"], data["b"]
+        elif "params" in data:
+            params = data["params"].item()
+            w, b = params["w"], params["b"]
+        else:  # pragma: no cover - unsupported format
+            raise ValueError("Invalid GraphCast checkpoint format")
+
+        self.w = np.asarray(w, dtype=np.float32)
+        self.b = np.asarray(b, dtype=np.float32)
 
         if (
             self.w.ndim != 2
@@ -48,45 +79,54 @@ class GraphCastModel:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def infer(self, climate: np.ndarray) -> np.ndarray:
-        """Apply the linear layer to a climate tensor.
+    def _apply(self, array: np.ndarray) -> np.ndarray:
+        """Apply the linear transform to ``array``."""
 
-        Parameters
-        ----------
-        climate:
-            Array with shape ``(..., C)`` where ``C`` matches the checkpoint
-            dimensions.  The linear transform is applied to the final axis and
-            the output has the same shape as the input.
-        """
-
-        flat = climate.reshape(-1, climate.shape[-1])
+        flat = array.reshape(-1, array.shape[-1])
         out = flat @ self.w + self.b
-        return out.reshape(climate.shape)
+        return out.reshape(array.shape)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def predict(self, features: pd.DataFrame, num_steps: int, step: int) -> pd.DataFrame:
-        """Generate deterministic forecasts using the loaded parameters.
+    def infer(self, climate: ArrayLike) -> ArrayLike:
+        """Run inference on ``climate`` data.
 
-        Only the final observation of ``features`` is used as the model state.
-        The state is transformed repeatedly with :meth:`infer` to create the
-        requested number of forecast steps.  ``step`` is accepted for interface
-        compatibility but is otherwise unused.
+        Parameters
+        ----------
+        climate:
+            ``numpy.ndarray`` or ``xarray.DataArray`` with the final dimension
+            matching the checkpoint's channel size.  The returned object matches
+            the input type.
         """
 
+        if isinstance(climate, xr.DataArray):
+            arr = climate.values.astype(np.float32)
+            result = self._apply(arr)
+            return xr.DataArray(result, coords=climate.coords, dims=climate.dims)
+
+        arr = np.asarray(climate, dtype=np.float32)
+        return self._apply(arr)
+
+    def predict(self, features: pd.DataFrame, num_steps: int, step: int) -> pd.DataFrame:
+        """Generate deterministic forecasts using the loaded parameters."""
+
         last = features.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
-        x = last.to_numpy(dtype=np.float32)
+        state = last.to_numpy(dtype=np.float32)
 
         rows: list[dict[str, Any]] = []
         for _ in range(num_steps):
-            x = self.infer(x)  # type: ignore[arg-type]
+            state = self._apply(state)  # type: ignore[arg-type]
             rows.append(
                 {
-                    "latitude": float(x[0]),
-                    "longitude": float(x[1]),
-                    "max_wind": float(x[2]),
-                    "min_pressure": float(x[3]),
+                    "latitude": float(state[0]),
+                    "longitude": float(state[1]),
+                    "max_wind": float(state[2]),
+                    "min_pressure": float(state[3]),
                 }
             )
         return pd.DataFrame(rows)
+
+
+__all__ = ["GraphCastModel"]
+
