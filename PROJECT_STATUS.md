@@ -9,6 +9,7 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Repository tooling for testing, linting, and packaging configured.
 - Expanded preprocessing and feature engineering for ERA5 dataset.
 - Evaluation framework and benchmarking suite established.
+- Published data pipeline documentation and tutorial notebooks.
 
 ## Remaining Milestones
 - Develop full training loop for GraphCast/Pangu-based models.
@@ -17,14 +18,14 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - **Data Foundation**
    - Finalize dataset loaders for ERA5, HURDAT2, and IBTrACS *(High priority, target: 2025-09)*
    - Validate preprocessing pipeline and feature engineering steps *(High priority, target: 2025-09)*
-   - Document end-to-end data pipeline and schema *(Medium priority, target: 2025-10)*
+   - Expand end-to-end data pipeline documentation and schema coverage *(Medium priority, target: 2025-10)*
 
 ## Phase Goals
 1. **Data Foundation**
    - Finalize dataset loaders for ERA5, HURDAT2, and IBTrACS *(High priority, target: 2025-09)*
    - Validate preprocessing pipeline and feature engineering steps *(High priority, target: 2025-09)*
-   - Document end-to-end data pipeline and schema *(Medium priority, target: 2025-10)*
+   - Expand end-to-end data pipeline documentation and schema coverage *(Medium priority, target: 2025-10)*
 2. **Model Development** – integrate forecast models and train baseline hurricane predictors.
 3. **Evaluation & Deployment** – benchmark models, refine APIs, and prepare for public release.
 
-_Last updated: 2025-08-12_
+_Last updated: 2025-08-13_
