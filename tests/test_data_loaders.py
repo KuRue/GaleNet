@@ -551,7 +551,7 @@ class TestERA5Loader:
 
         calls = []
 
-        def fake_download(start, end, bounds, variables):
+        def fake_download(self, start, end, bounds, variables):
             calls.append((start, end))
             fname = tmp_path / (
                 f"era5_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}_"
