@@ -169,6 +169,7 @@ def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
     config = OmegaConf.load(CONFIG_PATH)
     config.model.name = "graphcast"
     config.model.graphcast.checkpoint_path = str(ckpt_path)
+    config.inference.post_process.smooth_track = False
 
     monkeypatch.setattr(
         "galenet.inference.pipeline.get_config", lambda *args, **kwargs: config
@@ -197,18 +198,35 @@ def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
     )
     monkeypatch.setattr(pipeline.validator, "validate_track", lambda df: (True, []))
 
-    result = pipeline.forecast_storm("AL012023", forecast_hours=6)
+    result = pipeline.forecast_storm("AL012023", forecast_hours=12)
 
-    # The single forecast step should apply the bias once
+    # Two forecast steps should accumulate the bias each time
     last = sample_track.iloc[-1]
-    forecast = result.track.tail(1).iloc[0]
-    assert forecast["latitude"] == pytest.approx(last["latitude"] + 1.0)
-    assert forecast["longitude"] == pytest.approx(last["longitude"] - 1.0)
-    assert forecast["max_wind"] == pytest.approx(last["max_wind"] + 2.0)
-    assert forecast["min_pressure"] == pytest.approx(last["min_pressure"] - 2.0)
+    expected = pd.DataFrame(
+        [
+            {
+                "latitude": last["latitude"] + 1.0,
+                "longitude": last["longitude"] - 1.0,
+                "max_wind": last["max_wind"] + 2.0,
+                "min_pressure": last["min_pressure"] - 2.0,
+            },
+            {
+                "latitude": last["latitude"] + 2.0,
+                "longitude": last["longitude"] - 2.0,
+                "max_wind": last["max_wind"] + 4.0,
+                "min_pressure": last["min_pressure"] - 4.0,
+            },
+        ]
+    )
+
+    forecast = result.track.tail(2).reset_index(drop=True)
+    pd.testing.assert_frame_equal(
+        forecast[["latitude", "longitude", "max_wind", "min_pressure"]],
+        expected,
+    )
 
     # Re-running should yield the same deterministic forecast
-    result2 = pipeline.forecast_storm("AL012023", forecast_hours=6)
+    result2 = pipeline.forecast_storm("AL012023", forecast_hours=12)
     pd.testing.assert_frame_equal(result.track, result2.track)
 
 

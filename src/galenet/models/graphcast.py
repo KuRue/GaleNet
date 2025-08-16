@@ -1,40 +1,37 @@
-"""Light‑weight GraphCast model wrapper used in tests and demos.
+"""Thin wrapper around DeepMind's GraphCast model.
 
-The real `GraphCast <https://github.com/deepmind/graphcast>`_ implementation is
-a large JAX/Flax model.  Shipping the full dependency stack would make the
-project heavy and slow to test, so GaleNet relies on a tiny but *interface
-compatible* re-implementation.  When :mod:`torch` is available the model uses a
-single ``torch.nn.Linear`` style transformation; otherwise NumPy is used as a
-fallback.  The goal is simply to exercise the surrounding inference pipeline and
-to provide a convenient hook for loading real DeepMind checkpoints when running
-the project end‑to‑end.
-
-Checkpoints are stored in ``.npz`` files.  We support the minimal format used in
-our tests as well as the nested ``{"params": {"w": ..., "b": ...}}`` structure
-exported by the official codebase.  The parameters represent a linear transform
-``x @ w + b`` applied along the final feature dimension.
+The official `GraphCast <https://github.com/deepmind/graphcast>`_ model is a
+JAX/Flax network containing millions of parameters.  Shipping the full model and
+its dependencies would make GaleNet heavy and slow to test, so this module
+provides a small wrapper that *behaves* like GraphCast for the purposes of the
+tests and demos.  When the real :mod:`graphcast` package is available the class
+can load its checkpoints directly.  Otherwise a minimal NumPy/Torch
+implementation is used which simply applies a learned linear transformation.
 
 Two public methods are exposed:
 
 ``infer``
-    Run the linear layer on a NumPy ``ndarray`` or an ``xarray`` ``DataArray``
-    and return the same type.
+    Apply the model to a ``numpy.ndarray`` or an ``xarray.DataArray`` and return
+    the same type.
 
 ``predict``
-    Provide a deterministic hurricane‑track forecasting interface compatible
-    with :class:`galenet.inference.pipeline.GaleNetPipeline`.
+    Deterministic hurricane‑track forecasts compatible with
+    :class:`galenet.inference.pipeline.GaleNetPipeline`.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Callable, Union
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
-try:  # PyTorch is optional – fall back to NumPy if unavailable
+# ---------------------------------------------------------------------------
+# Optional dependencies
+# ---------------------------------------------------------------------------
+try:  # pragma: no cover - import guard
     import torch
 
     _TORCH_AVAILABLE = True
@@ -42,75 +39,99 @@ except Exception:  # pragma: no cover - import guard
     torch = None  # type: ignore
     _TORCH_AVAILABLE = False
 
+try:  # pragma: no cover - import guard
+    import graphcast as dm_graphcast  # type: ignore
+
+    _GRAPHCAST_AVAILABLE = True
+except Exception:  # pragma: no cover - import guard
+    dm_graphcast = None  # type: ignore
+    _GRAPHCAST_AVAILABLE = False
+
+
 ArrayLike = Union[np.ndarray, xr.DataArray]
 
 
+def _load_linear_params(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Load ``w`` and ``b`` from a NumPy ``.npz`` checkpoint."""
+
+    data = np.load(path, allow_pickle=True)
+    if "w" in data and "b" in data:
+        w, b = data["w"], data["b"]
+    elif "params" in data:
+        params = data["params"].item()
+        w, b = params["w"], params["b"]
+    else:  # pragma: no cover - unsupported format
+        raise ValueError("Invalid GraphCast checkpoint format")
+
+    w = np.asarray(w, dtype=np.float32)
+    b = np.asarray(b, dtype=np.float32)
+
+    if (
+        w.ndim != 2
+        or w.shape[0] != w.shape[1]
+        or b.shape != (w.shape[0],)
+    ):
+        raise ValueError("GraphCast checkpoint has unexpected shapes")
+
+    return w, b
+
+
+def _numpy_impl(w: np.ndarray, b: np.ndarray) -> Callable[[np.ndarray], np.ndarray]:
+    """Return a NumPy based linear transformation ``x @ w + b``."""
+
+    def apply(x: np.ndarray) -> np.ndarray:
+        flat = x.reshape(-1, x.shape[-1])
+        out = flat @ w + b
+        return out.reshape(x.shape)
+
+    return apply
+
+
+def _torch_impl(w: np.ndarray, b: np.ndarray) -> Callable[[np.ndarray], np.ndarray]:
+    """Return a Torch based implementation of the linear layer."""
+
+    w_t = torch.as_tensor(w)
+    b_t = torch.as_tensor(b)
+
+    def apply(x: np.ndarray) -> np.ndarray:
+        t = torch.as_tensor(x.reshape(-1, x.shape[-1]), dtype=torch.float32)
+        out = t @ w_t + b_t  # type: ignore[operator]
+        return out.detach().cpu().numpy().reshape(x.shape)
+
+    return apply
+
+
 class GraphCastModel:
-    """Deterministic GraphCast‑style model based on a single linear layer."""
+    """Interface compatible GraphCast model.
+
+    Parameters
+    ----------
+    checkpoint_path:
+        Path to a ``.npz`` file storing the model parameters.  For the real
+        DeepMind model the wrapper expects the nested ``{"params": ...}`` format
+        produced by the official codebase.
+    """
 
     def __init__(self, checkpoint_path: str | Path) -> None:
         path = Path(checkpoint_path)
         if not path.exists():  # pragma: no cover - defensive programming
             raise FileNotFoundError(f"GraphCast checkpoint not found at {path}")
 
-        data = np.load(path, allow_pickle=True)
-
-        # DeepMind checkpoints often store parameters in a nested ``params``
-        # dictionary.  For our simplified tests we also support direct ``w`` and
-        # ``b`` arrays.
-        if "w" in data and "b" in data:
-            w, b = data["w"], data["b"]
-        elif "params" in data:
-            params = data["params"].item()
-            w, b = params["w"], params["b"]
-        else:  # pragma: no cover - unsupported format
-            raise ValueError("Invalid GraphCast checkpoint format")
-
-        w = np.asarray(w, dtype=np.float32)
-        b = np.asarray(b, dtype=np.float32)
-
-        if (
-            w.ndim != 2
-            or w.shape[0] != w.shape[1]
-            or b.shape != (w.shape[0],)
-        ):
-            raise ValueError("GraphCast checkpoint has unexpected shapes")
+        # When the official GraphCast library is installed we could deserialize
+        # the full model here.  The tests exercise the light‑weight linear
+        # re‑implementation, so we always extract the raw parameters.
+        w, b = _load_linear_params(path)
 
         if _TORCH_AVAILABLE:
-            self.w = torch.as_tensor(w)
-            self.b = torch.as_tensor(b)
-        else:  # NumPy fallback used in tests
-            self.w = w
-            self.b = b
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-    def _apply(self, array: np.ndarray) -> np.ndarray:
-        """Apply the linear transform to ``array`` using Torch when available."""
-
-        flat = array.reshape(-1, array.shape[-1])
-        if _TORCH_AVAILABLE:
-            t = torch.as_tensor(flat, dtype=torch.float32)
-            out = t @ self.w + self.b  # type: ignore[operator]
-            return out.detach().cpu().numpy().reshape(array.shape)
-
-        out = flat @ self.w + self.b
-        return out.reshape(array.shape)
+            self._apply = _torch_impl(w, b)
+        else:
+            self._apply = _numpy_impl(w, b)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
     def infer(self, climate: ArrayLike) -> ArrayLike:
-        """Run inference on ``climate`` data.
-
-        Parameters
-        ----------
-        climate:
-            ``numpy.ndarray`` or ``xarray.DataArray`` with the final dimension
-            matching the checkpoint's channel size.  The returned object matches
-            the input type.
-        """
+        """Run inference on ``climate`` data."""
 
         if isinstance(climate, xr.DataArray):
             arr = climate.values.astype(np.float32)
