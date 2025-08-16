@@ -557,10 +557,7 @@ class TestERA5Loader:
         calls = []
 
         def fake_download(self, start, end, bounds, variables):
-            fname = tmp_path / (
-                f"era5_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}_"
-                f"{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
-            )
+            fname = self._cache_path(start, end, bounds, variables)
             if fname.exists():
                 return fname
             calls.append((start, end))
@@ -601,10 +598,7 @@ class TestERA5Loader:
 
         def fake_download(self, start, end, bounds, variables):
             calls.append((start, end))
-            fname = tmp_path / (
-                f"era5_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}_"
-                f"{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
-            )
+            fname = self._cache_path(start, end, bounds, variables)
             times = pd.date_range(start, end, freq="6H")
             ds = xr.Dataset(
                 {
@@ -675,6 +669,47 @@ class TestERA5Loader:
         assert any(b[1] < 0 or b[3] < 0 for b in calls)
         # Combined dataset should have monotonically increasing longitudes
         assert np.all(np.diff(ds.longitude.values) > 0)
+
+    def test_variable_specific_caching(self, tmp_path, monkeypatch):
+        """Different variable sets are cached separately."""
+
+        loader = ERA5Loader(cache_dir=tmp_path)
+
+        calls = []
+
+        def fake_download(self, start, end, bounds, variables):
+            fname = self._cache_path(start, end, bounds, variables)
+            if fname.exists():
+                return fname
+            calls.append(tuple(sorted(variables or [])))
+            times = pd.date_range(start, end, freq="6H")
+            data_vars = {
+                var: xr.DataArray(
+                    np.zeros((len(times), 1, 1)),
+                    dims=["time", "latitude", "longitude"],
+                )
+                for var in variables or ["u10"]
+            }
+            ds = xr.Dataset(data_vars, coords={"time": times, "latitude": [0], "longitude": [0]})
+            ds.to_netcdf(fname)
+            return fname
+
+        monkeypatch.setattr(ERA5Loader, "_download_single_period", fake_download)
+
+        start = datetime(2023, 1, 1)
+        end = datetime(2023, 1, 2)
+        bounds = (10, -20, 5, -15)
+
+        # First call downloads for two variables
+        loader.download_data(start, end, bounds, variables=["u10", "v10"])
+        # Second call with same vars but different order should hit cache
+        loader.download_data(start, end, bounds, variables=["v10", "u10"])
+        # Third call with different variable set triggers new download
+        loader.download_data(start, end, bounds, variables=["u10"])
+
+        # Sorted variable tuples captured in calls
+        assert calls.count(("u10", "v10")) == 1
+        assert calls.count(("u10",)) == 1
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

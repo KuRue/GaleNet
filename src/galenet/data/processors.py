@@ -316,6 +316,12 @@ class ERA5Preprocessor:
     ) -> xr.Dataset:
         """Compute derived meteorological fields.
 
+        The routine augments raw ERA5 variables with additional diagnostics
+        used for model training.  These include vertical wind shear between 200
+        and 850 hPa, a suite of humidity indices (relative humidity, specific
+        humidity and dewpoint depression) and basic kinematic quantities such as
+        vorticity and convergence.
+
         Args:
             data: ERA5 dataset
 
