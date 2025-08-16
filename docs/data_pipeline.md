@@ -50,3 +50,22 @@ ERA5 patches provide the model with environmental context around the storm path:
 
 This process enables consistent preprocessing across training and inference, ensuring storms share a common representation and environmental context.
 
+## Evaluation Example
+
+Validate the pipeline and generate baseline forecasts using:
+
+```bash
+python scripts/evaluate_baselines.py data/sample_storms.json \
+  --history 3 --forecast 2 --model-config configs/default_config.yaml
+```
+
+The script loads tracks through `HurricaneDataPipeline`, runs baseline models,
+and reports track error statistics.
+
+## GraphCast Integration Notes
+
+GraphCast variables are supported by the data pipeline. When a GraphCast
+checkpoint path is provided in the configuration, the pipeline automatically
+prepares inputs at the 0.25° resolution expected by GraphCast, enabling its use
+as a feature extractor or initialization for GaleNet models.
+

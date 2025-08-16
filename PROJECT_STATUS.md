@@ -11,22 +11,19 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Evaluation framework and benchmarking suite established.
 - Published data pipeline documentation and tutorial notebooks.
 - Installation, architecture, training, and API reference documentation published.
+- Data pipeline validated with baseline benchmarking.
+- Preliminary GraphCast integration hooks added.
 
 ## Remaining Milestones
+- Complete GraphCast integration into the pipeline.
 - Develop full training loop for GraphCast/Pangu-based models.
-- Achieve full GraphCast integration into the pipeline.
 - Build comprehensive documentation and usage examples.
-- **Data Foundation**
-   - Finalize dataset loaders for ERA5, HURDAT2, and IBTrACS *(High priority, target: 2025-09)*
-   - Validate preprocessing pipeline and feature engineering steps *(High priority, target: 2025-09)*
+- **Upcoming**
    - Expand end-to-end data pipeline documentation and schema coverage *(Medium priority, target: 2025-10)*
 
 ## Phase Goals
-1. **Data Foundation**
-   - Finalize dataset loaders for ERA5, HURDAT2, and IBTrACS *(High priority, target: 2025-09)*
-   - Validate preprocessing pipeline and feature engineering steps *(High priority, target: 2025-09)*
-   - Expand end-to-end data pipeline documentation and schema coverage *(Medium priority, target: 2025-10)*
+1. **Data Foundation** – dataset loaders finalized and preprocessing validated.
 2. **Model Development** – integrate forecast models and train baseline hurricane predictors.
 3. **Evaluation & Deployment** – benchmark models, refine APIs, and prepare for public release.
 
-_Last updated: 2025-08-16_
+_Last updated: 2025-08-27_
