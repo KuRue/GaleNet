@@ -43,7 +43,9 @@ pip install -e .
 python scripts/setup_data.py --download-era5 --download-models
 ```
 
-### Basic Usage
+### Usage Examples
+
+#### Forecasting
 
 ```python
 from galenet import GaleNetPipeline
@@ -64,6 +66,18 @@ forecast = pipeline.forecast_storm(
 print(f"24h position: {forecast.get_position(24)}")
 print(f"Peak intensity: {forecast.max_intensity} mph")
 print(f"Track uncertainty: {forecast.track_cone}")
+```
+
+#### Training
+
+```bash
+python scripts/train_model.py training.epochs=5 training.batch_size=8
+```
+
+#### Evaluation
+
+```bash
+python scripts/evaluate_baselines.py data/sample_storms.json --history 3 --forecast 2 --model-config configs/default_config.yaml
 ```
 
 ## 📁 Project Structure
