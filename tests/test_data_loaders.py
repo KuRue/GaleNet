@@ -17,6 +17,11 @@ import xarray as xr
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
+# Stub out heavy training/torch dependencies for lightweight tests
+sys.modules.setdefault("torch", SimpleNamespace())
+training_stub = SimpleNamespace(HurricaneDataset=None, Trainer=None, mse_loss=None)
+sys.modules.setdefault("galenet.training", training_stub)
+
 from galenet.data.loaders import (
     HURDAT2Loader,
     ERA5Loader,
@@ -544,6 +549,49 @@ class TestERA5Loader:
         assert 'API credentials' in str(exc.value)
         assert mock_client.retrieve.call_count == 3
 
+    def test_yearly_caching_reuses_files(self, tmp_path, monkeypatch):
+        """Subsequent calls for a single year use cached files."""
+
+        loader = ERA5Loader(cache_dir=tmp_path)
+
+        calls = []
+
+        def fake_download(self, start, end, bounds, variables):
+            fname = tmp_path / (
+                f"era5_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}_"
+                f"{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
+            )
+            if fname.exists():
+                return fname
+            calls.append((start, end))
+            times = pd.date_range(start, end, freq="6H")
+            ds = xr.Dataset(
+                {
+                    "u10": xr.DataArray(
+                        np.zeros((len(times), 1, 1)),
+                        dims=["time", "latitude", "longitude"],
+                    )
+                },
+                coords={"time": times, "latitude": [0], "longitude": [0]},
+            )
+            ds.to_netcdf(fname)
+            return fname
+
+        monkeypatch.setattr(ERA5Loader, "_download_single_period", fake_download)
+
+        start = datetime(2022, 12, 30)
+        end = datetime(2023, 1, 2)
+        bounds = (10, -20, 5, -15)
+
+        # Initial multi-year request populates yearly cache
+        loader.download_data(start, end, bounds, variables=["u10"])
+        assert len(calls) == 2
+
+        calls.clear()
+        # Request one of the years again; should hit cache and avoid new downloads
+        loader.download_data(datetime(2022, 12, 30), datetime(2022, 12, 31), bounds, variables=["u10"])
+        assert len(calls) == 0
+
     def test_multi_year_caching(self, tmp_path, monkeypatch):
         """Ensure multi-year ranges use yearly caching and merged file."""
 
@@ -584,6 +632,49 @@ class TestERA5Loader:
         # Second call should use cached merged file and not call fake_download
         loader.download_data(start, end, bounds, variables=["u10"])
         assert len(calls) == 0
+
+    def test_extract_patches_dateline_crossing(self, tmp_path, monkeypatch):
+        """Dateline-crossing tracks are stitched from two downloads."""
+
+        loader = ERA5Loader(cache_dir=tmp_path)
+
+        track_df = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2023-01-01", periods=2, freq="6H"),
+                "latitude": [0, 0],
+                "longitude": [170, -170],
+            }
+        )
+
+        calls = []
+
+        def fake_download(start, end, bounds, variables):
+            calls.append(bounds)
+            lon_min, lon_max = bounds[1], bounds[3]
+            times = pd.date_range(start, end, freq="6H")
+            ds = xr.Dataset(
+                {
+                    "u10": xr.DataArray(
+                        np.zeros((len(times), 1, 2)),
+                        dims=["time", "latitude", "longitude"],
+                    )
+                },
+                coords={"time": times, "latitude": [0], "longitude": [lon_min, lon_max]},
+            )
+            fname = tmp_path / f"era5_patch_{len(calls)}.nc"
+            ds.to_netcdf(fname)
+            return fname
+
+        monkeypatch.setattr(loader, "download_data", fake_download)
+
+        ds = loader.extract_hurricane_patches(track_df, patch_size=10, variables=["u10"])
+
+        assert len(calls) == 2
+        # Ensure we requested both sides of the dateline
+        assert any(b[1] >= 0 or b[3] > 0 for b in calls)
+        assert any(b[1] < 0 or b[3] < 0 for b in calls)
+        # Combined dataset should have monotonically increasing longitudes
+        assert np.all(np.diff(ds.longitude.values) > 0)
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
