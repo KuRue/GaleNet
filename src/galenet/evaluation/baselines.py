@@ -8,6 +8,8 @@ from typing import Dict, Iterable, Sequence
 import numpy as np
 import yaml
 
+from .metrics import compute_metrics, DEFAULT_METRICS
+
 _CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "default_config.yaml"
 with open(_CONFIG_PATH) as _cfg:
     DEFAULT_BASELINES: Iterable[str] = yaml.safe_load(_cfg)["evaluation"]["baselines"]
@@ -105,3 +107,53 @@ def run_baselines(
             continue
         results[name] = func(track, forecast_steps)
     return results
+
+
+def evaluate_baselines(
+    storms: Sequence[Sequence[Sequence[float]]],
+    history_steps: int,
+    forecast_steps: int,
+    baselines: Iterable[str] | None = None,
+    metrics: Iterable[str] | None = None,
+) -> Dict[str, Dict[str, float]]:
+    """Run baselines over multiple storms and summarise metrics.
+
+    Args:
+        storms: Sequence of complete storm tracks. Each track should contain
+            ``history_steps + forecast_steps`` entries with ``(lat, lon, intensity)``.
+        history_steps: Number of initial steps to use as history for forecasting.
+        forecast_steps: Number of forecast steps to evaluate.
+        baselines: Iterable of baseline names. Defaults to
+            ``configs/default_config.yaml::evaluation.baselines``.
+        metrics: Iterable of metric names. Defaults to
+            ``configs/default_config.yaml::evaluation.metrics``.
+
+    Returns:
+        Dictionary mapping baseline name to a dictionary of mean metric values
+        across all storms.
+    """
+    baselines = baselines or DEFAULT_BASELINES
+    metrics = metrics or DEFAULT_METRICS
+    summary: Dict[str, Dict[str, list[float]]] = {
+        b: {m: [] for m in metrics} for b in baselines
+    }
+
+    for storm in storms:
+        history = storm[:history_steps]
+        truth = storm[history_steps : history_steps + forecast_steps]
+        forecasts = run_baselines(history, forecast_steps, baselines)
+        for name, pred in forecasts.items():
+            results = compute_metrics(
+                pred[:, :2],
+                truth[:, :2],
+                pred[:, 2],
+                truth[:, 2],
+                metrics,
+            )
+            for metric_name, value in results.items():
+                summary[name][metric_name].append(value)
+
+    return {
+        b: {m: float(np.mean(vals)) for m, vals in metrics_dict.items()}
+        for b, metrics_dict in summary.items()
+    }
