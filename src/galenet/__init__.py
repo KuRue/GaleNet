@@ -23,6 +23,7 @@ from .data import (
 
 # Main pipeline
 from .inference.pipeline import GaleNetPipeline
+from .training import HurricaneDataset, Trainer, mse_loss
 
 __all__ = [
     # Version info
@@ -42,6 +43,11 @@ __all__ = [
 
     # Main pipeline
     "GaleNetPipeline",
+
+    # Training utilities
+    "HurricaneDataset",
+    "Trainer",
+    "mse_loss",
 ]
 
 # Package metadata
