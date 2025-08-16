@@ -64,3 +64,25 @@ era5_patch = storm["era5"]      # xarray Dataset
 ```
 
 The call loads the HURDAT2 track and extracts ERA5 patches around the storm path, caching downloads under `$HOME/data/galenet/era5`.
+
+## Advanced ERA5 Downloading
+
+`ERA5Loader` now handles multi-year requests and caches each year's data on
+disk. Subsequent downloads with overlapping periods reuse these cached files
+and merge them into a single dataset.
+
+```python
+from datetime import datetime
+from galenet.data.loaders import ERA5Loader
+
+loader = ERA5Loader()
+path = loader.download_data(
+    datetime(2022, 6, 1),
+    datetime(2023, 6, 30),
+    bounds=(40, -80, 0, -30),
+)
+print(path)  # -> merged NetCDF file covering both years
+```
+
+If ERA5 credentials are missing or invalid the loader raises a descriptive
+error before attempting any downloads, helping diagnose configuration issues.

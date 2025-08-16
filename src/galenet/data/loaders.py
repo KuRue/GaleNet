@@ -310,25 +310,62 @@ class ERA5Loader:
             
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+
     def download_data(
         self,
         start_date: datetime,
         end_date: datetime,
         bounds: Tuple[float, float, float, float],
-        variables: Optional[List[str]] = None
+        variables: Optional[List[str]] = None,
     ) -> Path:
-        """Download ERA5 data for specified period and region.
-        
-        Args:
-            start_date: Start date
-            end_date: End date
-            bounds: (north, west, south, east) in degrees
-            variables: List of ERA5 variables to download
-            
-        Returns:
-            Path to downloaded file
+        """Download ERA5 data for a possibly multi-year period.
+
+        The method caches yearly downloads and merges them when a range spans
+        more than one calendar year.  Subsequent calls with overlapping ranges
+        will reuse the cached annual files or the final merged file if present.
         """
+
+        # If the range is contained within a single year we can download it
+        # directly using the helper method.
+        if start_date.year == end_date.year:
+            return self._download_single_period(start_date, end_date, bounds, variables)
+
+        # Path for the merged multi-year file
+        date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
+        filename = (
+            f"era5_{date_str}_{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
+        )
+        merged_path = self.cache_dir / filename
+        if merged_path.exists():
+            logger.info(f"ERA5 data already cached at {merged_path}")
+            return merged_path
+
+        # Download each year separately to benefit from caching and API limits
+        datasets = []
+        current_year = start_date.year
+        while current_year <= end_date.year:
+            period_start = max(start_date, datetime(current_year, 1, 1))
+            period_end = min(end_date, datetime(current_year, 12, 31))
+            path = self._download_single_period(period_start, period_end, bounds, variables)
+            datasets.append(xr.open_dataset(path))
+            current_year += 1
+
+        merged = xr.concat(datasets, dim="time").sortby("time")
+        merged.to_netcdf(merged_path)
+
+        for ds in datasets:
+            ds.close()
+
+        return merged_path
+
+    def _download_single_period(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        bounds: Tuple[float, float, float, float],
+        variables: Optional[List[str]] = None,
+    ) -> Path:
+        """Download ERA5 data for a period confined to a single year."""
         import cdsapi
         import time
 
@@ -364,9 +401,11 @@ class ERA5Loader:
                     pressure_level_vars.append(var)
             pressure_levels = ['200', '850'] if pressure_level_vars else []
 
-        # Create filename
+        # Create filename for this sub-period
         date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
-        filename = f"era5_{date_str}_{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
+        filename = (
+            f"era5_{date_str}_{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
+        )
         filepath = self.cache_dir / filename
 
         if filepath.exists():
@@ -394,7 +433,7 @@ class ERA5Loader:
                 'Check your ERA5 API credentials and network connectivity.'
             ) from e
 
-        # Date range
+        # Date range for this sub-period
         dates = []
         current = start_date
         while current <= end_date:
@@ -481,7 +520,9 @@ class ERA5Loader:
                         v = merged['v_component_of_wind'].sel(pressure_level=lvl).drop('pressure_level')
                         merged[f'u{level}'] = u
                         merged[f'v{level}'] = v
-                merged = merged.drop_vars([v for v in ['u_component_of_wind', 'v_component_of_wind'] if v in merged])
+                merged = merged.drop_vars(
+                    [v for v in ['u_component_of_wind', 'v_component_of_wind'] if v in merged]
+                )
 
             merged.to_netcdf(filepath)
 
