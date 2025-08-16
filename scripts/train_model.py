@@ -1,36 +1,46 @@
 #!/usr/bin/env python
-"""Command line interface for training GaleNet models."""
+"""Command line interface for training GaleNet models with PyTorch."""
 
-import argparse
-import sys
+from __future__ import annotations
+
+import logging
 from pathlib import Path
-import numpy as np
 
-# Add repository root/src to path
-sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
+import hydra
+from omegaconf import DictConfig
+import torch
 
 from galenet.data import HurricaneDataPipeline
-from galenet.models import GraphCastModel
-from galenet.training import HurricaneDataset, Trainer
+from galenet.training import HurricaneDataset, Trainer, create_dataloader
+
+log = logging.getLogger(__name__)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Train a GaleNet model")
-    parser.add_argument("storm_id", help="Storm identifier for training data")
-    parser.add_argument("checkpoint", help="Path to GraphCast checkpoint (.npz)")
-    parser.add_argument("--epochs", type=int, default=1, help="Number of epochs")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
-    args = parser.parse_args()
+@hydra.main(version_base=None, config_path="../configs", config_name="default_config")
+def main(cfg: DictConfig) -> None:
+    """Train a simple model using configuration from Hydra."""
 
+    logging.basicConfig(level=logging.INFO)
+
+    # Data -----------------------------------------------------------------
+    storm = cfg.get("storm_id", "AL012011")
     pipeline = HurricaneDataPipeline()
-    dataset = HurricaneDataset(pipeline, [args.storm_id])
-    model = GraphCastModel(args.checkpoint)
-    trainer = Trainer(model, dataset, learning_rate=args.lr)
+    dataset = HurricaneDataset(pipeline, [storm], window=1)
+    loader = create_dataloader(dataset, batch_size=cfg.training.get("batch_size", 1), shuffle=True)
 
-    for epoch, loss in enumerate(trainer.train(args.epochs), 1):
-        print(f"Epoch {epoch}: loss={loss:.6f}")
+    # Model/optimizer ------------------------------------------------------
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4))
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.training.learning_rate)
+    trainer = Trainer(model, optimizer)
 
-    np.savez(args.checkpoint, w=model.w, b=model.b)
+    # Checkpoint directory
+    ckpt_dir = Path(cfg.get("checkpoint_dir", "checkpoints"))
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    # Training loop --------------------------------------------------------
+    for epoch, loss in enumerate(trainer.train(loader, epochs=cfg.training.epochs), 1):
+        log.info("epoch %d loss=%.6f", epoch, loss)
+        trainer.save_checkpoint(ckpt_dir / f"epoch_{epoch}.pt")
 
 
 if __name__ == "__main__":
