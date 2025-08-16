@@ -62,7 +62,10 @@ def get_config(
             OmegaConf.update(config, key, value)
 
     # Set environment variables
-    OmegaConf.register_new_resolver("env", lambda x: os.environ.get(x, ''))
+    try:  # Allow repeated registration in multi-use scenarios
+        OmegaConf.register_new_resolver("env", lambda x: os.environ.get(x, ""))
+    except Exception:  # pragma: no cover - resolver already registered
+        pass
 
     return cast(DictConfig, config)
 
