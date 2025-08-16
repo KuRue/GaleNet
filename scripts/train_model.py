@@ -23,24 +23,40 @@ def main(cfg: DictConfig) -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Data -----------------------------------------------------------------
-    storm = cfg.get("storm_id", "AL012011")
+    storms = cfg.training.get("storms", ["AL012011"])
     pipeline = HurricaneDataPipeline()
-    dataset = HurricaneDataset(pipeline, [storm], window=1)
-    loader = create_dataloader(dataset, batch_size=cfg.training.get("batch_size", 1), shuffle=True)
+    dataset = HurricaneDataset(
+        pipeline,
+        storms,
+        sequence_window=cfg.training.get("sequence_window", 1),
+        forecast_window=cfg.training.get("forecast_window", 1),
+        include_era5=cfg.training.get("include_era5", False),
+    )
+    loader = create_dataloader(
+        dataset,
+        batch_size=cfg.training.get("batch_size", 1),
+        shuffle=cfg.training.get("shuffle", True),
+    )
 
     # Model/optimizer ------------------------------------------------------
     model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4))
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.training.learning_rate)
-    trainer = Trainer(model, optimizer)
+    trainer = Trainer(
+        model,
+        optimizer,
+        device=cfg.project.get("device", "cpu"),
+        grad_accum_steps=cfg.training.get("gradient_accumulation_steps", 1),
+    )
 
     # Checkpoint directory
     ckpt_dir = Path(cfg.get("checkpoint_dir", "checkpoints"))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     # Training loop --------------------------------------------------------
-    for epoch, loss in enumerate(trainer.train(loader, epochs=cfg.training.epochs), 1):
+    epochs = cfg.training.get("epochs", 1)
+    for epoch, loss in enumerate(trainer.train(loader, epochs=epochs), 1):
         log.info("epoch %d loss=%.6f", epoch, loss)
-        trainer.save_checkpoint(ckpt_dir / f"epoch_{epoch}.pt")
+        trainer.save_checkpoint(ckpt_dir / f"epoch_{epoch}.pt", epoch=epoch)
 
 
 if __name__ == "__main__":
