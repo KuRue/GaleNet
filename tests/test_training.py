@@ -1,7 +1,11 @@
+import sys
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 import torch
 
+sys.path.append(str(Path(__file__).parent.parent / "src"))
 from galenet.training import HurricaneDataset, Trainer, create_dataloader
 
 
@@ -58,3 +62,22 @@ def test_trainer_single_step_reduces_loss() -> None:
         final = torch.nn.functional.mse_loss(model(batch_inputs), batch_targets).item()
 
     assert final < initial
+
+
+def test_trainer_updates_weights() -> None:
+    """Weights should change after a training epoch."""
+
+    pipeline = DummyPipeline()
+    dataset = HurricaneDataset(pipeline, ["TEST"], window=1, include_era5=False)
+    loader = create_dataloader(dataset, batch_size=1, shuffle=False)
+
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4, bias=False))
+    torch.nn.init.zeros_(model[1].weight)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    trainer = Trainer(model, optimizer)
+
+    initial_weights = model[1].weight.detach().clone()
+    list(trainer.train(loader, epochs=1))
+    updated_weights = model[1].weight.detach()
+
+    assert not torch.allclose(initial_weights, updated_weights)

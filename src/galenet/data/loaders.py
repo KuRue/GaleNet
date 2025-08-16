@@ -553,21 +553,52 @@ class ERA5Loader:
         Returns:
             Dataset with ERA5 patches
         """
-        # Determine spatial bounds
-        lat_min = track_df['latitude'].min() - patch_size / 2
-        lat_max = track_df['latitude'].max() + patch_size / 2
-        lon_min = track_df['longitude'].min() - patch_size / 2
-        lon_max = track_df['longitude'].max() + patch_size / 2
-        
-        bounds = (lat_max, lon_min, lat_min, lon_max)
-        
-        # Determine temporal bounds
+        # Determine temporal bounds first
         start_date = track_df['timestamp'].min() - timedelta(hours=lead_time_hours)
         end_date = track_df['timestamp'].max() + timedelta(hours=lag_time_hours)
-        
-        # Download data
+
+        # Determine spatial bounds and handle possible dateline crossings
+        lat_min = track_df['latitude'].min() - patch_size / 2
+        lat_max = track_df['latitude'].max() + patch_size / 2
+
+        lon_vals = track_df['longitude']
+        lon_min = lon_vals.min() - patch_size / 2
+        lon_max = lon_vals.max() + patch_size / 2
+
+        # Detect dateline crossing when longitudes span more than 180 degrees
+        crosses_dateline = lon_vals.max() - lon_vals.min() > 180
+
+        if crosses_dateline:
+            # Split into eastern (>=0) and western (<0) hemispheres
+            east = lon_vals[lon_vals >= 0]
+            west = lon_vals[lon_vals < 0]
+
+            east_min = east.min() - patch_size / 2
+            east_max = east.max() + patch_size / 2
+            west_min = west.min() - patch_size / 2
+            west_max = west.max() + patch_size / 2
+
+            bounds_east = (lat_max, east_min, lat_min, east_max)
+            bounds_west = (lat_max, west_min, lat_min, west_max)
+
+            east_file = self.download_data(start_date, end_date, bounds_east, variables)
+            west_file = self.download_data(start_date, end_date, bounds_west, variables)
+
+            east_ds = self.load_file(east_file)
+            west_ds = self.load_file(west_file)
+
+            combined = xr.concat([west_ds, east_ds], dim="longitude").sortby("longitude")
+
+            east_ds.close()
+            west_ds.close()
+
+            return combined
+
+        bounds = (lat_max, lon_min, lat_min, lon_max)
+
+        # Download data for single continuous region
         era5_file = self.download_data(start_date, end_date, bounds, variables)
-        
+
         # Load and return
         return self.load_file(era5_file)
     
