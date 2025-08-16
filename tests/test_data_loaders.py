@@ -303,6 +303,7 @@ class TestERA5Preprocessor:
         assert 'vertical_wind_shear_v' in enhanced
         assert 'relative_humidity' in enhanced
         assert 'specific_humidity' in enhanced
+        assert 'dewpoint_depression' in enhanced
 
         # Check wind speed calculation
         expected_speed = np.sqrt(patch['u10']**2 + patch['v10']**2)
@@ -350,6 +351,14 @@ class TestERA5Preprocessor:
         np.testing.assert_allclose(
             enhanced['specific_humidity'].values,
             expected_q.values,
+            rtol=1e-5,
+        )
+
+        # Check dewpoint depression calculation
+        expected_dd = patch['t2m'] - patch['d2m']
+        np.testing.assert_allclose(
+            enhanced['dewpoint_depression'].values,
+            expected_dd.values,
             rtol=1e-5,
         )
 
@@ -534,6 +543,47 @@ class TestERA5Loader:
 
         assert 'API credentials' in str(exc.value)
         assert mock_client.retrieve.call_count == 3
+
+    def test_multi_year_caching(self, tmp_path, monkeypatch):
+        """Ensure multi-year ranges use yearly caching and merged file."""
+
+        loader = ERA5Loader(cache_dir=tmp_path)
+
+        calls = []
+
+        def fake_download(start, end, bounds, variables):
+            calls.append((start, end))
+            fname = tmp_path / (
+                f"era5_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}_"
+                f"{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
+            )
+            times = pd.date_range(start, end, freq="6H")
+            ds = xr.Dataset(
+                {
+                    "u10": xr.DataArray(
+                        np.zeros((len(times), 1, 1)),
+                        dims=["time", "latitude", "longitude"],
+                    )
+                },
+                coords={"time": times, "latitude": [0], "longitude": [0]},
+            )
+            ds.to_netcdf(fname)
+            return fname
+
+        monkeypatch.setattr(ERA5Loader, "_download_single_period", fake_download)
+
+        start = datetime(2022, 12, 30)
+        end = datetime(2023, 1, 2)
+        bounds = (10, -20, 5, -15)
+
+        # First call should trigger downloads for two separate periods
+        loader.download_data(start, end, bounds, variables=["u10"])
+        assert len(calls) == 2
+
+        calls.clear()
+        # Second call should use cached merged file and not call fake_download
+        loader.download_data(start, end, bounds, variables=["u10"])
+        assert len(calls) == 0
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

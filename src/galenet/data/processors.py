@@ -363,6 +363,8 @@ class ERA5Preprocessor:
             numerator = np.exp((17.625 * td_c) / (243.04 + td_c))
             denominator = np.exp((17.625 * t_c) / (243.04 + t_c))
             enhanced['relative_humidity'] = (100.0 * numerator / denominator).clip(0, 100)
+            # Dewpoint depression: difference between temperature and dew point
+            enhanced['dewpoint_depression'] = data['t2m'] - data['d2m']
 
         # Specific humidity computed from dew point and pressure
         if 'd2m' in data and 'msl' in data:
