@@ -3,6 +3,7 @@
 """Data loaders for GaleNet hurricane forecasting system."""
 
 import re
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
@@ -297,7 +298,7 @@ class IBTrACSLoader:
 
 class ERA5Loader:
     """Loader for ERA5 reanalysis data."""
-    
+
     def __init__(self, cache_dir: Optional[Path] = None):
         """Initialize ERA5 loader.
         
@@ -311,6 +312,30 @@ class ERA5Loader:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
+    def _cache_path(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        bounds: Tuple[float, float, float, float],
+        variables: Optional[List[str]] = None,
+    ) -> Path:
+        """Return cache filepath for given request parameters.
+
+        A short hash of the requested variable list is appended to the
+        filename so that cached files for different variable combinations do
+        not collide.
+        """
+        date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
+        bounds_str = (
+            f"{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W"
+        )
+        var_hash = "default"
+        if variables:
+            key = ",".join(sorted(variables))
+            var_hash = hashlib.md5(key.encode("utf-8")).hexdigest()[:8]
+        filename = f"era5_{date_str}_{bounds_str}_{var_hash}.nc"
+        return self.cache_dir / filename
+
     def download_data(
         self,
         start_date: datetime,
@@ -320,9 +345,11 @@ class ERA5Loader:
     ) -> Path:
         """Download ERA5 data for a possibly multi-year period.
 
-        The method caches yearly downloads and merges them when a range spans
-        more than one calendar year.  Subsequent calls with overlapping ranges
-        will reuse the cached annual files or the final merged file if present.
+        The method caches each request on disk keyed by the date range, spatial
+        bounds, and requested variable set.  When a range spans multiple years
+        the yearly files are cached individually and then merged. Subsequent
+        calls with overlapping periods or the same parameters reuse the cached
+        files instead of re-downloading from the CDS API.
         """
 
         # If the range is contained within a single year we can download it
@@ -330,12 +357,8 @@ class ERA5Loader:
         if start_date.year == end_date.year:
             return self._download_single_period(start_date, end_date, bounds, variables)
 
-        # Path for the merged multi-year file
-        date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
-        filename = (
-            f"era5_{date_str}_{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
-        )
-        merged_path = self.cache_dir / filename
+        # Path for the merged multi-year file, includes variable hash
+        merged_path = self._cache_path(start_date, end_date, bounds, variables)
         if merged_path.exists():
             logger.info(f"ERA5 data already cached at {merged_path}")
             return merged_path
@@ -401,12 +424,8 @@ class ERA5Loader:
                     pressure_level_vars.append(var)
             pressure_levels = ['200', '850'] if pressure_level_vars else []
 
-        # Create filename for this sub-period
-        date_str = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
-        filename = (
-            f"era5_{date_str}_{bounds[0]}N_{abs(bounds[1])}W_{bounds[2]}N_{abs(bounds[3])}W.nc"
-        )
-        filepath = self.cache_dir / filename
+        # Create filename for this sub-period (includes variable hash)
+        filepath = self._cache_path(start_date, end_date, bounds, variables)
 
         if filepath.exists():
             logger.info(f"ERA5 data already cached at {filepath}")

@@ -86,3 +86,30 @@ print(path)  # -> merged NetCDF file covering both years
 
 If ERA5 credentials are missing or invalid the loader raises a descriptive
 error before attempting any downloads, helping diagnose configuration issues.
+
+You can also request custom variables; the loader caches each unique
+combination separately to avoid mismatches between downloads:
+
+```python
+loader = ERA5Loader()
+u_v_file = loader.download_data(
+    datetime(2023, 1, 1),
+    datetime(2023, 1, 2),
+    bounds=(30, -80, 10, -50),
+    variables=["u10", "v10"],
+)
+# A second call with the variables in different order reuses the cache
+u_v_file_again = loader.download_data(
+    datetime(2023, 1, 1),
+    datetime(2023, 1, 2),
+    bounds=(30, -80, 10, -50),
+    variables=["v10", "u10"],
+)
+# Requesting a different variable set triggers a new download
+u_only_file = loader.download_data(
+    datetime(2023, 1, 1),
+    datetime(2023, 1, 2),
+    bounds=(30, -80, 10, -50),
+    variables=["u10"],
+)
+```
