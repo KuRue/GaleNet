@@ -12,7 +12,6 @@ from omegaconf import OmegaConf
 
 # Ensure src is on the path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
-
 from galenet.inference.pipeline import GaleNetPipeline  # noqa: E402
 from galenet.models.graphcast import GraphCastModel  # noqa: E402
 

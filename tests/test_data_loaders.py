@@ -17,8 +17,14 @@ import xarray as xr
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
-# Stub out heavy training/torch dependencies for lightweight tests
-sys.modules.setdefault("torch", SimpleNamespace())
+# Stub out heavy training/torch dependencies for lightweight tests when torch
+# is unavailable.  If torch is installed we use the real library so other tests
+# can rely on it.
+try:  # pragma: no cover - exercised indirectly
+    import torch  # noqa: F401
+except Exception:  # pragma: no cover - executed when torch missing
+    sys.modules.setdefault("torch", SimpleNamespace())
+
 training_stub = SimpleNamespace(HurricaneDataset=None, Trainer=None, mse_loss=None)
 sys.modules.setdefault("galenet.training", training_stub)
 

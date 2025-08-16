@@ -98,6 +98,11 @@ training:
   weight_decay: 1e-4
   gradient_clip: 1.0
   gradient_accumulation_steps: 8
+  storms: ["AL012011"]
+  sequence_window: 1
+  forecast_window: 1
+  include_era5: false
+  shuffle: true
   
   # Scheduler
   scheduler:

@@ -6,7 +6,7 @@ from typing import Iterable, Iterator, List, Sequence, Tuple
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, IterableDataset
 
 from ..data import HurricaneDataPipeline
 
@@ -15,41 +15,42 @@ TrackPair = Tuple[torch.Tensor, torch.Tensor]
 TrackTriplet = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
-class HurricaneDataset(Dataset[Tuple[torch.Tensor, ...]]):
-    """Dataset yielding track sequence windows and optional ERA5 patches.
+class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, ...]]):
+    """Stream track windows across multiple storms.
 
-    Parameters
-    ----------
-    pipeline:
-        ``HurricaneDataPipeline`` instance used to load storm data.
-    storms:
-        Iterable of storm identifiers.
-    window:
-        Number of sequential observations to include in the input window.
-    include_era5:
-        Whether to include ERA5 patches in the samples.  When ``True`` and
-        corresponding data are available, each sample becomes a triplet of
-        ``(sequence, target, era5_patch)``.  Otherwise it yields ``(sequence,
-        target)`` pairs.
+    The dataset yields tuples of ``(sequence, target)`` or
+    ``(sequence, target, era5_patch)`` depending on the ``include_era5``
+    flag. ``sequence`` spans ``sequence_window`` observations while ``target``
+    contains ``forecast_window`` future observations.
     """
 
     def __init__(
         self,
         pipeline: HurricaneDataPipeline,
         storms: Sequence[str],
-        window: int = 1,
+        sequence_window: int = 1,
+        forecast_window: int = 1,
         include_era5: bool = False,
     ) -> None:
         self.pipeline = pipeline
         self.storms = list(storms)
-        self.window = int(window)
+        self.sequence_window = int(sequence_window)
+        self.forecast_window = int(forecast_window)
         self.include_era5 = bool(include_era5)
 
-        self.samples: List[Tuple[torch.Tensor, ...]] = []
-        self._prepare()
+        # Pre-compute the total length for __len__ without storing samples.
+        self._length = 0
+        cols = ["latitude", "longitude", "max_wind", "min_pressure"]
+        for storm_id in self.storms:
+            data = self.pipeline.load_hurricane_for_training(storm_id, include_era5=False)
+            track = data["track"].sort_values("timestamp").reset_index(drop=True)
+            arr = track[cols].to_numpy(dtype=np.float32)
+            self._length += max(
+                len(arr) - self.sequence_window - self.forecast_window + 1, 0
+            )
 
     # ------------------------------------------------------------------
-    def _prepare(self) -> None:
+    def __iter__(self) -> Iterator[Tuple[torch.Tensor, ...]]:
         cols = ["latitude", "longitude", "max_wind", "min_pressure"]
         for storm_id in self.storms:
             data = self.pipeline.load_hurricane_for_training(
@@ -67,21 +68,35 @@ class HurricaneDataset(Dataset[Tuple[torch.Tensor, ...]]):
             else:
                 era5_arr = None
 
-            for i in range(len(arr) - self.window):
-                seq = torch.from_numpy(arr[i : i + self.window])
-                target = torch.from_numpy(arr[i + self.window])
+            limit = len(arr) - self.sequence_window - self.forecast_window + 1
+            for i in range(max(limit, 0)):
+                seq = torch.from_numpy(
+                    arr[i : i + self.sequence_window]
+                )
+                target = torch.from_numpy(
+                    arr[
+                        i
+                        + self.sequence_window : i
+                        + self.sequence_window
+                        + self.forecast_window
+                    ]
+                )
                 if era5_arr is not None:
-                    patch = torch.from_numpy(era5_arr[i + self.window])
-                    self.samples.append((seq, target, patch))
+                    patch = torch.from_numpy(
+                        era5_arr[
+                            i
+                            + self.sequence_window : i
+                            + self.sequence_window
+                            + self.forecast_window
+                        ]
+                    )
+                    yield (seq, target, patch)
                 else:
-                    self.samples.append((seq, target))
+                    yield (seq, target)
 
     # ------------------------------------------------------------------
     def __len__(self) -> int:  # pragma: no cover - trivial
-        return len(self.samples)
-
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, ...]:
-        return self.samples[idx]
+        return self._length
 
 
 # ---------------------------------------------------------------------------
