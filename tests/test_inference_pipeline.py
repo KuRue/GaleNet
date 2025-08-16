@@ -156,16 +156,11 @@ def test_graphcast_deterministic_forecast(monkeypatch, tmp_path, sample_track):
 
     # Create a tiny GraphCast-style checkpoint implementing an identity layer
     ckpt_path = tmp_path / "params.npz"
-    from graphcast import checkpoint as gc_checkpoint
-
-    with ckpt_path.open("wb") as f:
-        gc_checkpoint.dump(
-            f,
-            {
-                "w": np.eye(4, dtype=np.float32),
-                "b": np.zeros(4, dtype=np.float32),
-            },
-        )
+    np.savez(
+        ckpt_path,
+        w=np.eye(4, dtype=np.float32),
+        b=np.zeros(4, dtype=np.float32),
+    )
 
     config = OmegaConf.load(CONFIG_PATH)
     config.model.name = "graphcast"
@@ -208,3 +203,22 @@ def test_graphcast_deterministic_forecast(monkeypatch, tmp_path, sample_track):
     assert np.allclose(
         forecast_row.to_numpy(dtype=float), last_obs.to_numpy(dtype=float)
     )
+
+
+def test_graphcast_climate_tensor_inference(tmp_path):
+    """GraphCastModel should transform climate tensors via the checkpoint."""
+
+    ckpt_path = tmp_path / "params.npz"
+    np.savez(
+        ckpt_path,
+        w=2 * np.eye(4, dtype=np.float32),
+        b=np.ones(4, dtype=np.float32),
+    )
+
+    model = GraphCastModel(str(ckpt_path))
+    climate = np.ones((2, 2, 4), dtype=np.float32)
+    out = model.infer(climate)
+
+    assert out.shape == climate.shape
+    expected = climate * 2 + 1
+    np.testing.assert_allclose(out, expected)
