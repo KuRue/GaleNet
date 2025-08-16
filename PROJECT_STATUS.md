@@ -10,6 +10,7 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Expanded preprocessing and feature engineering for ERA5 dataset.
 - Evaluation framework and benchmarking suite established.
 - Published data pipeline documentation and tutorial notebooks.
+- Installation, architecture, training, and API reference documentation published.
 
 ## Remaining Milestones
 - Develop full training loop for GraphCast/Pangu-based models.
@@ -28,4 +29,4 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 2. **Model Development** – integrate forecast models and train baseline hurricane predictors.
 3. **Evaluation & Deployment** – benchmark models, refine APIs, and prepare for public release.
 
-_Last updated: 2025-08-13_
+_Last updated: 2025-08-16_
