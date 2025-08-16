@@ -177,3 +177,34 @@ def compute_metrics(
         else:
             results[name] = func(track_pred, track_truth)
     return results
+
+
+def compute_metrics_multi(
+    track_preds: Sequence[Sequence[Sequence[float]]],
+    track_truths: Sequence[Sequence[Sequence[float]]],
+    intensity_preds: Sequence[Sequence[float]],
+    intensity_truths: Sequence[Sequence[float]],
+    metrics: Iterable[str] | None = None,
+) -> Dict[str, float]:
+    """Compute metrics averaged over multiple storms.
+
+    Args:
+        track_preds: Sequence of predicted tracks for each storm.
+        track_truths: Sequence of true tracks for each storm.
+        intensity_preds: Sequence of predicted intensity sequences.
+        intensity_truths: Sequence of true intensity sequences.
+        metrics: Iterable of metric names. Defaults to
+            ``configs/default_config.yaml::evaluation.metrics``.
+
+    Returns:
+        Dictionary with mean metric values across all storms.
+    """
+    metrics = metrics or DEFAULT_METRICS
+    accum: Dict[str, list[float]] = {m: [] for m in metrics}
+    for t_pred, t_true, i_pred, i_true in zip(
+        track_preds, track_truths, intensity_preds, intensity_truths
+    ):
+        result = compute_metrics(t_pred, t_true, i_pred, i_true, metrics)
+        for name, value in result.items():
+            accum.setdefault(name, []).append(float(value))
+    return {name: float(np.mean(values)) for name, values in accum.items()}
