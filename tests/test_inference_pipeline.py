@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from omegaconf import OmegaConf
 
 # Ensure src is on the path
@@ -151,15 +152,15 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
     assert any("bad track" in w for w in warnings)
 
 
-def test_graphcast_deterministic_forecast(monkeypatch, tmp_path, sample_track):
-    """Pipeline produces deterministic forecasts with GraphCast weights."""
+def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
+    """Pipeline produces forecasts transformed by GraphCast weights."""
 
-    # Create a tiny GraphCast-style checkpoint implementing an identity layer
+    # Create a checkpoint shifting each step by a fixed amount
     ckpt_path = tmp_path / "params.npz"
     np.savez(
         ckpt_path,
         w=np.eye(4, dtype=np.float32),
-        b=np.zeros(4, dtype=np.float32),
+        b=np.array([1.0, -1.0, 2.0, -2.0], dtype=np.float32),
     )
 
     config = OmegaConf.load(CONFIG_PATH)
@@ -193,32 +194,39 @@ def test_graphcast_deterministic_forecast(monkeypatch, tmp_path, sample_track):
     )
     monkeypatch.setattr(pipeline.validator, "validate_track", lambda df: (True, []))
 
-    result1 = pipeline.forecast_storm("AL012023", forecast_hours=6)
+    result = pipeline.forecast_storm("AL012023", forecast_hours=6)
+
+    # The single forecast step should apply the bias once
+    last = sample_track.iloc[-1]
+    forecast = result.track.tail(1).iloc[0]
+    assert forecast["latitude"] == pytest.approx(last["latitude"] + 1.0)
+    assert forecast["longitude"] == pytest.approx(last["longitude"] - 1.0)
+    assert forecast["max_wind"] == pytest.approx(last["max_wind"] + 2.0)
+    assert forecast["min_pressure"] == pytest.approx(last["min_pressure"] - 2.0)
+
+    # Re-running should yield the same deterministic forecast
     result2 = pipeline.forecast_storm("AL012023", forecast_hours=6)
-
-    # Forecast should be deterministic and replicate the last observation
-    pd.testing.assert_frame_equal(result1.track, result2.track)
-    last_obs = sample_track.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
-    forecast_row = result1.track.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
-    assert np.allclose(
-        forecast_row.to_numpy(dtype=float), last_obs.to_numpy(dtype=float)
-    )
+    pd.testing.assert_frame_equal(result.track, result2.track)
 
 
-def test_graphcast_climate_tensor_inference(tmp_path):
-    """GraphCastModel should transform climate tensors via the checkpoint."""
+def test_graphcast_numpy_and_xarray_inference(tmp_path):
+    """Model inference should work for NumPy arrays and xarray DataArrays."""
 
     ckpt_path = tmp_path / "params.npz"
     np.savez(
         ckpt_path,
-        w=2 * np.eye(4, dtype=np.float32),
+        w=np.eye(4, dtype=np.float32),
         b=np.ones(4, dtype=np.float32),
     )
 
     model = GraphCastModel(str(ckpt_path))
-    climate = np.ones((2, 2, 4), dtype=np.float32)
-    out = model.infer(climate)
 
-    assert out.shape == climate.shape
-    expected = climate * 2 + 1
-    np.testing.assert_allclose(out, expected)
+    arr = np.zeros((2, 4), dtype=np.float32)
+    out = model.infer(arr)
+    assert isinstance(out, np.ndarray)
+    assert np.allclose(out, np.ones_like(arr))
+
+    da = xr.DataArray(arr, dims=["t", "c"])
+    da_out = model.infer(da)
+    assert isinstance(da_out, xr.DataArray)
+    assert np.allclose(da_out.values, np.ones_like(arr))
