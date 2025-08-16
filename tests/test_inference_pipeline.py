@@ -155,12 +155,16 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
 def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
     """Pipeline produces forecasts transformed by GraphCast weights."""
 
-    # Create a checkpoint shifting each step by a fixed amount
+    # Create a checkpoint shifting each step by a fixed amount.  Use the nested
+    # ``{"params": {"w": ..., "b": ...}}`` structure exported by the official
+    # GraphCast codebase to ensure our loader handles DeepMind checkpoints.
     ckpt_path = tmp_path / "params.npz"
     np.savez(
         ckpt_path,
-        w=np.eye(4, dtype=np.float32),
-        b=np.array([1.0, -1.0, 2.0, -2.0], dtype=np.float32),
+        params={
+            "w": np.eye(4, dtype=np.float32),
+            "b": np.array([1.0, -1.0, 2.0, -2.0], dtype=np.float32),
+        },
     )
 
     config = OmegaConf.load(CONFIG_PATH)

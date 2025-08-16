@@ -1,36 +1,28 @@
-"""GraphCast model wrapper for GaleNet.
+"""Light‑weight GraphCast model wrapper used in tests and demos.
 
-This module provides a very small but reasonably faithful reimplementation of
-`GraphCast <https://github.com/deepmind/graphcast>`_.  The real GraphCast model
-from DeepMind is a large JAX model operating on global climate tensors.  For
-testing and lightweight inference inside GaleNet we only require a deterministic
-component that can load a checkpoint and perform forward passes on NumPy or
-``xarray`` tensors.  The implementation below mimics the public interface of the
-official model closely enough for our purposes.
+The real `GraphCast <https://github.com/deepmind/graphcast>`_ implementation is
+a large JAX/Flax model.  Shipping the full dependency stack would make the
+project heavy and slow to test, so GaleNet relies on a tiny but *interface
+compatible* re-implementation.  When :mod:`torch` is available the model uses a
+single ``torch.nn.Linear`` style transformation; otherwise NumPy is used as a
+fallback.  The goal is simply to exercise the surrounding inference pipeline and
+to provide a convenient hook for loading real DeepMind checkpoints when running
+the project end‑to‑end.
 
-The expected checkpoint format is a ``.npz`` file containing two arrays:
-
-``w``
-    Weight matrix with shape ``(C, C)`` where ``C`` is the number of climate
-    channels.
-``b``
-    Bias vector with shape ``(C,)``.
-
-These arrays are applied as ``x @ w + b`` along the feature dimension of the
-input tensor.  Checkpoints exported from the official DeepMind implementation
-contain a nested ``params`` dictionary; this wrapper understands both the simple
-``w``/``b`` format used in the tests and the nested format by looking for these
-keys during loading.
+Checkpoints are stored in ``.npz`` files.  We support the minimal format used in
+our tests as well as the nested ``{"params": {"w": ..., "b": ...}}`` structure
+exported by the official codebase.  The parameters represent a linear transform
+``x @ w + b`` applied along the final feature dimension.
 
 Two public methods are exposed:
 
 ``infer``
-    Applies the linear transform to a NumPy ``ndarray`` or an ``xarray``
-    ``DataArray`` and returns an object of the same type.
+    Run the linear layer on a NumPy ``ndarray`` or an ``xarray`` ``DataArray``
+    and return the same type.
 
 ``predict``
-    Provides a minimal hurricane-track forecasting interface compatible with
-    :class:`galenet.inference.pipeline.GaleNetPipeline`.
+    Provide a deterministic hurricane‑track forecasting interface compatible
+    with :class:`galenet.inference.pipeline.GaleNetPipeline`.
 """
 
 from __future__ import annotations
@@ -42,11 +34,19 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+try:  # PyTorch is optional – fall back to NumPy if unavailable
+    import torch
+
+    _TORCH_AVAILABLE = True
+except Exception:  # pragma: no cover - import guard
+    torch = None  # type: ignore
+    _TORCH_AVAILABLE = False
+
 ArrayLike = Union[np.ndarray, xr.DataArray]
 
 
 class GraphCastModel:
-    """Minimal GraphCast-style model based on a single linear layer."""
+    """Deterministic GraphCast‑style model based on a single linear layer."""
 
     def __init__(self, checkpoint_path: str | Path) -> None:
         path = Path(checkpoint_path)
@@ -66,23 +66,35 @@ class GraphCastModel:
         else:  # pragma: no cover - unsupported format
             raise ValueError("Invalid GraphCast checkpoint format")
 
-        self.w = np.asarray(w, dtype=np.float32)
-        self.b = np.asarray(b, dtype=np.float32)
+        w = np.asarray(w, dtype=np.float32)
+        b = np.asarray(b, dtype=np.float32)
 
         if (
-            self.w.ndim != 2
-            or self.w.shape[0] != self.w.shape[1]
-            or self.b.shape != (self.w.shape[0],)
+            w.ndim != 2
+            or w.shape[0] != w.shape[1]
+            or b.shape != (w.shape[0],)
         ):
             raise ValueError("GraphCast checkpoint has unexpected shapes")
+
+        if _TORCH_AVAILABLE:
+            self.w = torch.as_tensor(w)
+            self.b = torch.as_tensor(b)
+        else:  # NumPy fallback used in tests
+            self.w = w
+            self.b = b
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
     def _apply(self, array: np.ndarray) -> np.ndarray:
-        """Apply the linear transform to ``array``."""
+        """Apply the linear transform to ``array`` using Torch when available."""
 
         flat = array.reshape(-1, array.shape[-1])
+        if _TORCH_AVAILABLE:
+            t = torch.as_tensor(flat, dtype=torch.float32)
+            out = t @ self.w + self.b  # type: ignore[operator]
+            return out.detach().cpu().numpy().reshape(array.shape)
+
         out = flat @ self.w + self.b
         return out.reshape(array.shape)
 
