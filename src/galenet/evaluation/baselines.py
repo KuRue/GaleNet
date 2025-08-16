@@ -113,6 +113,8 @@ def evaluate_baselines(
     storms: Sequence[Sequence[Sequence[float]]],
     history_steps: int,
     forecast_steps: int,
+    model_forecasts: Sequence[np.ndarray] | None = None,
+    model_name: str = "model",
     baselines: Iterable[str] | None = None,
     metrics: Iterable[str] | None = None,
 ) -> Dict[str, Dict[str, float]]:
@@ -123,9 +125,17 @@ def evaluate_baselines(
             ``history_steps + forecast_steps`` entries with ``(lat, lon, intensity)``.
         history_steps: Number of initial steps to use as history for forecasting.
         forecast_steps: Number of forecast steps to evaluate.
-        baselines: Iterable of baseline names. Defaults to
+        model_forecasts:
+            Optional sequence of model forecast arrays with shape
+            ``(forecast_steps, 3)`` matching the storms. When provided, metrics
+            are computed for this model alongside the baselines.
+        model_name:
+            Name under which to report model metrics. Defaults to ``"model"``.
+        baselines:
+            Iterable of baseline names. Defaults to
             ``configs/default_config.yaml::evaluation.baselines``.
-        metrics: Iterable of metric names. Defaults to
+        metrics:
+            Iterable of metric names. Defaults to
             ``configs/default_config.yaml::evaluation.metrics``.
 
     Returns:
@@ -137,8 +147,12 @@ def evaluate_baselines(
     summary: Dict[str, Dict[str, list[float]]] = {
         b: {m: [] for m in metrics} for b in baselines
     }
+    if model_forecasts is not None:
+        if len(model_forecasts) != len(storms):
+            raise ValueError("model_forecasts must match number of storms")
+        summary[model_name] = {m: [] for m in metrics}
 
-    for storm in storms:
+    for idx, storm in enumerate(storms):
         history = storm[:history_steps]
         truth = storm[history_steps : history_steps + forecast_steps]
         forecasts = run_baselines(history, forecast_steps, baselines)
@@ -153,7 +167,19 @@ def evaluate_baselines(
             for metric_name, value in results.items():
                 summary[name][metric_name].append(value)
 
+        if model_forecasts is not None:
+            pred = model_forecasts[idx]
+            results = compute_metrics(
+                pred[:, :2],
+                truth[:, :2],
+                pred[:, 2],
+                truth[:, 2],
+                metrics,
+            )
+            for metric_name, value in results.items():
+                summary[model_name][metric_name].append(value)
+
     return {
-        b: {m: float(np.mean(vals)) for m, vals in metrics_dict.items()}
-        for b, metrics_dict in summary.items()
+        name: {m: float(np.mean(vals)) for m, vals in metrics_dict.items()}
+        for name, metrics_dict in summary.items()
     }

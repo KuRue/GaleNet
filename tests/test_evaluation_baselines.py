@@ -4,10 +4,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+sys.path.append(str(Path(__file__).parent.parent / "src" / "galenet"))
 
-from galenet.evaluation.baselines import run_baselines, evaluate_baselines
-from galenet.evaluation.metrics import compute_metrics
+from evaluation.baselines import run_baselines, evaluate_baselines
+from evaluation.metrics import compute_metrics
 
 
 def test_baseline_predictions():
@@ -103,4 +103,96 @@ def test_evaluate_baselines_multi_storm():
     assert summary["persistence"]["track_error"] == pytest.approx(expected_track, rel=1e-4)
     assert summary["persistence"]["intensity_mae"] == pytest.approx(
         expected_intensity, rel=1e-4
+    )
+
+
+def test_evaluate_baselines_with_model():
+    storms = [
+        np.array(
+            [
+                [0.0, 0.0, 40.0],
+                [1.0, 1.0, 41.0],
+                [2.0, 2.0, 42.0],
+                [3.0, 3.0, 43.0],
+            ]
+        ),
+        np.array(
+            [
+                [10.0, 10.0, 30.0],
+                [11.0, 10.0, 32.0],
+                [12.0, 10.0, 34.0],
+                [13.0, 10.0, 36.0],
+            ]
+        ),
+    ]
+
+    model_forecasts = [
+        np.array([[2.0, 2.0, 42.0], [3.0, 3.0, 42.0]]),
+        np.array([[12.0, 10.0, 34.0], [13.0, 10.0, 34.0]]),
+    ]
+
+    summary = evaluate_baselines(
+        storms,
+        history_steps=2,
+        forecast_steps=2,
+        baselines=["persistence"],
+        metrics=["track_error", "intensity_mae"],
+        model_forecasts=model_forecasts,
+        model_name="model",
+    )
+
+    # Baseline metrics
+    f1 = run_baselines(storms[0][:2], 2, baselines=["persistence"])["persistence"]
+    m1 = compute_metrics(
+        f1[:, :2],
+        storms[0][2:, :2],
+        f1[:, 2],
+        storms[0][2:, 2],
+        metrics=["track_error", "intensity_mae"],
+    )
+
+    f2 = run_baselines(storms[1][:2], 2, baselines=["persistence"])["persistence"]
+    m2 = compute_metrics(
+        f2[:, :2],
+        storms[1][2:, :2],
+        f2[:, 2],
+        storms[1][2:, 2],
+        metrics=["track_error", "intensity_mae"],
+    )
+
+    expected_track = (m1["track_error"] + m2["track_error"]) / 2
+    expected_intensity = (m1["intensity_mae"] + m2["intensity_mae"]) / 2
+
+    assert summary["persistence"]["track_error"] == pytest.approx(expected_track, rel=1e-4)
+    assert summary["persistence"]["intensity_mae"] == pytest.approx(
+        expected_intensity, rel=1e-4
+    )
+
+    # Model metrics
+    m1_model = compute_metrics(
+        model_forecasts[0][:, :2],
+        storms[0][2:, :2],
+        model_forecasts[0][:, 2],
+        storms[0][2:, 2],
+        metrics=["track_error", "intensity_mae"],
+    )
+
+    m2_model = compute_metrics(
+        model_forecasts[1][:, :2],
+        storms[1][2:, :2],
+        model_forecasts[1][:, 2],
+        storms[1][2:, 2],
+        metrics=["track_error", "intensity_mae"],
+    )
+
+    expected_track_model = (m1_model["track_error"] + m2_model["track_error"]) / 2
+    expected_intensity_model = (
+        m1_model["intensity_mae"] + m2_model["intensity_mae"]
+    ) / 2
+
+    assert summary["model"]["track_error"] == pytest.approx(
+        expected_track_model, rel=1e-4
+    )
+    assert summary["model"]["intensity_mae"] == pytest.approx(
+        expected_intensity_model, rel=1e-4
     )
