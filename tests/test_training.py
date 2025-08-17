@@ -6,6 +6,9 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 # Ensure any stubs from other tests are removed before importing
+for mod in list(sys.modules):
+    if mod.startswith("torch"):
+        sys.modules.pop(mod, None)
 import torch
 sys.modules.pop("galenet.training", None)
 from galenet.training import HurricaneDataset, Trainer, create_dataloader
@@ -38,32 +41,32 @@ class DummyPipeline:
 def test_dataset_iteration() -> None:
     pipeline = DummyPipeline()
     dataset = HurricaneDataset(
-        pipeline, ["TEST"], sequence_window=2, forecast_window=1, include_era5=False
+        pipeline, ["A", "B"], sequence_window=2, forecast_window=1, include_era5=False
     )
 
     assert len(dataset) == 3
     seq, target = next(iter(dataset))
-    assert seq.shape == (2, 4)
-    assert target.shape == (1, 4)
+    assert seq.shape == (2, 2, 4)
+    assert target.shape == (2, 1, 4)
 
-    loader = create_dataloader(dataset, batch_size=2, shuffle=False)
+    loader = create_dataloader(dataset, batch_size=1, shuffle=False)
     batch_seq, batch_target = next(iter(loader))
-    assert batch_seq.shape == (2, 2, 4)
-    assert batch_target.shape == (2, 1, 4)
+    assert batch_seq.shape == (1, 2, 2, 4)
+    assert batch_target.shape == (1, 2, 1, 4)
 
 
 def test_dataset_with_era5() -> None:
     pipeline = DummyPipeline()
     dataset = HurricaneDataset(
-        pipeline, ["TEST"], sequence_window=2, forecast_window=1, include_era5=True
+        pipeline, ["A", "B"], sequence_window=2, forecast_window=1, include_era5=True
     )
 
     seq, target, patch = next(iter(dataset))
-    assert patch.shape == (1, 1)
+    assert patch.shape == (2, 1, 1)
 
-    loader = create_dataloader(dataset, batch_size=2, shuffle=False)
+    loader = create_dataloader(dataset, batch_size=1, shuffle=False)
     batch_seq, batch_target, batch_patch = next(iter(loader))
-    assert batch_patch.shape == (2, 1, 1)
+    assert batch_patch.shape == (1, 2, 1, 1)
 
 
 def test_trainer_single_step_reduces_loss() -> None:
@@ -84,7 +87,8 @@ def test_trainer_single_step_reduces_loss() -> None:
             model(batch_inputs), batch_targets
         ).item()
 
-    list(trainer.train(loader, epochs=1))
+    metrics = list(trainer.train(loader, epochs=1))
+    assert "loss" in metrics[0]
 
     with torch.no_grad():
         final = torch.nn.functional.mse_loss(model(batch_inputs), batch_targets).item()
@@ -131,10 +135,9 @@ def test_trainer_checkpoint_restore(tmp_path) -> None:
     with torch.no_grad():
         model[1].weight.add_(1.0)
 
-    epoch = trainer.load_checkpoint(ckpt)
-    assert epoch == 1
+    list(trainer.train(loader, epochs=0, resume_from=ckpt))
     assert torch.allclose(model[1].weight, saved_weights)
 
-    list(trainer.train(loader, epochs=1, start_epoch=epoch))
+    list(trainer.train(loader, epochs=1, start_epoch=1))
     assert not torch.allclose(model[1].weight, saved_weights)
 
