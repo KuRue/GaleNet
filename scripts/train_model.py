@@ -54,8 +54,11 @@ def main(cfg: DictConfig) -> None:
 
     # Training loop --------------------------------------------------------
     epochs = cfg.training.get("epochs", 1)
-    for epoch, loss in enumerate(trainer.train(loader, epochs=epochs), 1):
-        log.info("epoch %d loss=%.6f", epoch, loss)
+    resume = cfg.training.get("resume_from")
+    for epoch, metrics in enumerate(
+        trainer.train(loader, epochs=epochs, resume_from=resume), 1
+    ):
+        log.info("epoch %d %s", epoch, " ".join(f"{k}={v:.6f}" for k, v in metrics.items()))
         trainer.save_checkpoint(ckpt_dir / f"epoch_{epoch}.pt", epoch=epoch)
 
 

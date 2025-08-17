@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Iterable, Iterator, Tuple
+from typing import Iterator
 
 import torch
 from torch import nn, optim
@@ -32,9 +32,20 @@ class Trainer:
 
     # ------------------------------------------------------------------
     def train(
-        self, dataloader: DataLoader, epochs: int = 1, start_epoch: int = 0
-    ) -> Iterator[float]:
-        """Yield average loss for each epoch."""
+        self,
+        dataloader: DataLoader,
+        epochs: int = 1,
+        start_epoch: int = 0,
+        resume_from: str | Path | None = None,
+    ) -> Iterator[dict]:
+        """Yield metrics for each epoch.
+
+        If ``resume_from`` is provided, the trainer will load the checkpoint
+        before starting training and continue from the stored epoch.
+        """
+
+        if resume_from is not None:
+            start_epoch = self.load_checkpoint(resume_from)
 
         for epoch in range(start_epoch, start_epoch + epochs):
             self.model.train()
@@ -43,13 +54,14 @@ class Trainer:
             self.optimizer.zero_grad()
             for step, batch in enumerate(dataloader, 1):
                 if isinstance(batch, (list, tuple)):
-                    inputs, targets = batch[0], batch[1]
+                    inputs, targets, *extras = batch
                 else:  # pragma: no cover - defensive
-                    inputs, targets = batch
+                    inputs, targets, *extras = batch, None, []  # type: ignore[misc]
                 inputs = inputs.to(self.device, dtype=torch.float32)
                 targets = targets.to(self.device, dtype=torch.float32)
+                extras = [e.to(self.device, dtype=torch.float32) for e in extras]
 
-                preds = self.model(inputs)
+                preds = self.model(inputs, *extras)
                 loss = self.loss_fn(preds, targets) / self.grad_accum_steps
                 loss.backward()
 
@@ -64,8 +76,12 @@ class Trainer:
                 self.optimizer.zero_grad()
 
             avg = total / max(count, 1)
-            self.logger.info("epoch %d loss=%.6f", epoch + 1, avg)
-            yield avg
+            metrics = {"loss": avg}
+            self.logger.info(
+                "epoch %d " + " ".join(f"{k}={v:.6f}" for k, v in metrics.items()),
+                epoch + 1,
+            )
+            yield metrics
 
     # ------------------------------------------------------------------
     def save_checkpoint(self, path: str | Path, epoch: int = 0) -> None:
