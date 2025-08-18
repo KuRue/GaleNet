@@ -25,6 +25,9 @@ ERA5 reanalysis data is optional but recommended. With credentials configured (s
 python scripts/setup_data.py --download-era5
 ```
 
+With data in place, see the [Training Guide](training.md) to build models or the
+[Evaluation Guide](evaluation.md) to benchmark baselines.
+
 ## ERA5 Credential Setup
 
 Downloading ERA5 data requires Copernicus Climate Data Store (CDS) credentials:

@@ -1,7 +1,8 @@
 # Training Guide
 
 This guide demonstrates how to train GaleNet models with the included
-PyTorch utilities.
+PyTorch utilities. Ensure datasets are prepared as described in the
+[Data Workflow](data_workflow.md) guide before starting.
 
 ## Quick Start
 
@@ -39,12 +40,12 @@ python scripts/evaluate_baselines.py data/sample_storms.json \
 ```
 
 The command reports track and intensity errors and writes a summary under
-`results/`.
+`results/`. See the [Evaluation Guide](evaluation.md) for details.
 
 ## GraphCast Integration Notes
 
-GaleNet can initialize weights from the GraphCast model for transfer learning.
-Configure the GraphCast checkpoint in your YAML config:
+GaleNet includes experimental hooks for initializing weights from the
+GraphCast model. Configure the GraphCast checkpoint in your YAML config:
 
 ```yaml
 model:
@@ -54,4 +55,4 @@ model:
 ```
 
 During training, GraphCast features are fused with GaleNet's storm-specific
-heads, enabling rapid fine-tuning on hurricane data.
+heads, enabling fine-tuning on hurricane data.
