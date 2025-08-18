@@ -1,21 +1,20 @@
 # 🌀 GaleNet
 
-**AI-Powered Hurricane Forecasting System**
+**Experimental AI Hurricane Forecasting Toolkit**
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-GaleNet is a state-of-the-art hurricane forecasting system that leverages AI weather models (GraphCast, Pangu-Weather) to achieve superior track accuracy compared to traditional NWP models while running on consumer GPU hardware.
+GaleNet explores AI‑based techniques for tropical cyclone forecasting. The project currently focuses on data pipelines and baseline models while integration with weather models such as GraphCast and Pangu‑Weather remains under active development.
 
 ## 🌟 Key Features
 
-- **🎯 15-20% Better Track Accuracy** - Outperforms GFS/ECMWF models at 3-5 day forecasts
-- **⚡ Real-time Performance** - Second-scale inference on consumer GPUs
-- **🔀 50-100 Member Ensembles** - Uncertainty quantification through ensemble forecasting
-- **🧠 Physics-Informed Neural Networks** - Integrates atmospheric physics constraints
-- **🐳 Production Ready** - Docker/Kubernetes deployment with monitoring
+- **Hurricane Data Pipeline** – loaders for HURDAT2, IBTrACS, and optional ERA5 patches.
+- **Baseline Training & Evaluation Scripts** – minimal examples for model experimentation.
+- **Hydra Configuration** – reproducible experiments managed through YAML configs.
+- **Modular Design** – architecture prepared for future GraphCast and Pangu‑Weather integration.
 
 ## 🚀 Quick Start
 
@@ -38,7 +37,7 @@ conda activate galenet
 pip install -e .
 ```
 
-4. Download required data and model weights:
+4. Download sample data and placeholder model weights:
 ```bash
 python scripts/setup_data.py --download-era5 --download-models
 ```
@@ -59,7 +58,7 @@ pipeline = GaleNetPipeline(
 forecast = pipeline.forecast_storm(
     storm_id="AL052024",  # Hurricane ID
     forecast_hours=120,    # 5-day forecast
-    ensemble_size=50       # Ensemble members
+    ensemble_size=5        # Ensemble members
 )
 
 # Access results
@@ -139,47 +138,33 @@ docker run --gpus all -p 8000:8000 galenet:latest
 ## 📈 Current Development Status
 
 ### Phase 1: Foundation ✅ **In Progress**
-- [x] Project structure setup
-- [x] Environment configuration
-- [x] Data pipeline implementation
-- [ ] GraphCast integration
-- [x] Baseline validation
+- [x] Project structure and environment setup
+- [x] Data pipeline with HURDAT2/IBTrACS loaders
+- [x] Baseline evaluation script
+- [ ] GraphCast integration and extended docs
 
-### Phase 2: Model Development 📋 **Planned**
-- [ ] CNN-Transformer implementation
-- [ ] Physics-informed neural networks
-- [ ] Fine-tuning pipeline
-- [ ] Ensemble system
+### Phase 2: Model Development 📃 **Planned**
+- [ ] CNN‑Transformer models
+- [ ] Physics‑informed refinements
+- [ ] Ensemble experimentation
 
 ### Phase 3: Optimization 🔧 **Planned**
-- [ ] Memory optimization
-- [ ] Model quantization
+- [ ] Memory and performance tuning
 - [ ] Comprehensive validation
-- [ ] Performance benchmarking
 
 ### Phase 4: Deployment 🚀 **Planned**
-- [ ] API development
-- [ ] Kubernetes deployment
-- [ ] Monitoring system
-- [ ] Documentation
-
-## 📊 Performance Benchmarks
-
-| Model | 24h Track Error | 72h Track Error | 120h Track Error | Inference Time |
-|-------|-----------------|-----------------|------------------|----------------|
-| GaleNet Ensemble | **42 km** | **125 km** | **285 km** | 2.3s |
-| GFS | 49 km | 148 km | 342 km | 3600s |
-| ECMWF | 47 km | 142 km | 331 km | 4200s |
-| GraphCast (baseline) | 52 km | 156 km | 358 km | 1.8s |
+- [ ] API and packaging
+- [ ] Monitoring and infrastructure
 
 ## 📚 Documentation
 
 - [Data Pipeline](docs/data_pipeline.md)
 - [Data Workflow](docs/data_workflow.md)
+- [Training Guide](docs/training.md)
+- [Evaluation Guide](docs/evaluation.md)
 - [Installation Guide](docs/installation.md)
 - [API Reference](docs/api_reference.md)
 - [Model Architecture](docs/architecture.md)
-- [Training Guide](docs/training.md)
 - [Tutorial Notebooks](notebooks/)
 
 ## 🔬 Research
@@ -206,9 +191,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-- Project Lead: [Your Name]
-- Email: your.email@example.com
-- Issues: [GitHub Issues](https://github.com/KuRue/GaleNet/issues)
+For questions or suggestions, please open an issue on [GitHub](https://github.com/KuRue/GaleNet/issues).
 
 ---
 ⚡ Built with PyTorch | 🌊 Powered by AI | 🌀 Protecting Communities

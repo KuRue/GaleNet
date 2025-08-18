@@ -1,6 +1,6 @@
 # Data Pipeline
 
-This document describes the data pipeline used by GaleNet, including dataset schemas, preprocessing stages, and ERA5 patch extraction.
+This document describes the data pipeline used by GaleNet, including dataset schemas, preprocessing stages, and ERA5 patch extraction. For instructions on gathering datasets, see the [Data Workflow](data_workflow.md). After data preparation, continue with the [Training Guide](training.md) or [Evaluation Guide](evaluation.md).
 
 ## Dataset Schemas
 
@@ -60,12 +60,13 @@ python scripts/evaluate_baselines.py data/sample_storms.json \
 ```
 
 The script loads tracks through `HurricaneDataPipeline`, runs baseline models,
-and reports track error statistics.
+and reports track error statistics. Additional options are documented in the
+[Evaluation Guide](evaluation.md).
 
 ## GraphCast Integration Notes
 
-GraphCast variables are supported by the data pipeline. When a GraphCast
-checkpoint path is provided in the configuration, the pipeline automatically
+The pipeline includes experimental support for GraphCast variables. When a
+GraphCast checkpoint path is provided in the configuration, the pipeline
 prepares inputs at the 0.25° resolution expected by GraphCast, enabling its use
 as a feature extractor or initialization for GaleNet models.
 
