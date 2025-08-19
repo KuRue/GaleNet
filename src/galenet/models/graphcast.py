@@ -1,44 +1,34 @@
-"""Thin wrapper around DeepMind's GraphCast model.
+"""Wrapper around the official `graphcast` package.
 
-The official `GraphCast <https://github.com/deepmind/graphcast>`_ model is a
-JAX/Flax network containing millions of parameters.  Shipping the full model and
-its dependencies would make GaleNet heavy and slow to test, so this module
-provides a small wrapper that *behaves* like GraphCast for the purposes of the
-tests and demos.  When the real :mod:`graphcast` package is available the class
-can load its checkpoints directly.  Otherwise a minimal NumPy/Torch
-implementation is used which simply applies a learned linear transformation.
+This module no longer implements the lightweight linear fallback used for
+testing.  Instead it defers entirely to DeepMind's `graphcast` implementation
+which provides a JAX/Flax model for global weather forecasting.  The wrapper
+offers a minimal interface used by the rest of GaleNet while providing clear
+error messages when the required dependency or checkpoint is missing.
 
 Two public methods are exposed:
 
 ``infer``
-    Apply the model to a ``numpy.ndarray`` or an ``xarray.DataArray`` and return
-    the same type.
+    Apply the loaded GraphCast model to either a ``numpy.ndarray`` or an
+    ``xarray.DataArray`` and return the same type.
 
 ``predict``
-    Deterministic hurricane‑track forecasts compatible with
-    :class:`galenet.inference.pipeline.GaleNetPipeline`.
+    Convenience method for running the model autoregressively for a number of
+    steps.  The method simply chains calls to :meth:`infer` and returns the
+    final array.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Union
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 # ---------------------------------------------------------------------------
-# Optional dependencies
+# Optional dependency
 # ---------------------------------------------------------------------------
-try:  # pragma: no cover - import guard
-    import torch
-
-    _TORCH_AVAILABLE = True
-except Exception:  # pragma: no cover - import guard
-    torch = None  # type: ignore
-    _TORCH_AVAILABLE = False
-
 try:  # pragma: no cover - import guard
     import graphcast as dm_graphcast  # type: ignore
 
@@ -51,141 +41,58 @@ except Exception:  # pragma: no cover - import guard
 ArrayLike = Union[np.ndarray, xr.DataArray]
 
 
-def _load_linear_params(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """Load ``w`` and ``b`` from a NumPy ``.npz`` checkpoint."""
-
-    data = np.load(path, allow_pickle=True)
-    if "w" in data and "b" in data:
-        w, b = data["w"], data["b"]
-    elif "params" in data:
-        params = data["params"].item()
-        w, b = params["w"], params["b"]
-    else:  # pragma: no cover - unsupported format
-        raise ValueError("Invalid GraphCast checkpoint format")
-
-    w = np.asarray(w, dtype=np.float32)
-    b = np.asarray(b, dtype=np.float32)
-
-    if (
-        w.ndim != 2
-        or w.shape[0] != w.shape[1]
-        or b.shape != (w.shape[0],)
-    ):
-        raise ValueError("GraphCast checkpoint has unexpected shapes")
-
-    return w, b
-
-
-def _numpy_impl(w: np.ndarray, b: np.ndarray) -> Callable[[np.ndarray], np.ndarray]:
-    """Return a NumPy based linear transformation ``x @ w + b``."""
-
-    def apply(x: np.ndarray) -> np.ndarray:
-        flat = x.reshape(-1, x.shape[-1])
-        out = flat @ w + b
-        return out.reshape(x.shape)
-
-    return apply
-
-
-def _torch_impl(w: np.ndarray, b: np.ndarray) -> Callable[[np.ndarray], np.ndarray]:
-    """Return a Torch based implementation of the linear layer."""
-
-    w_t = torch.as_tensor(w)
-    b_t = torch.as_tensor(b)
-
-    def apply(x: np.ndarray) -> np.ndarray:
-        t = torch.as_tensor(x.reshape(-1, x.shape[-1]), dtype=torch.float32)
-        out = t @ w_t + b_t  # type: ignore[operator]
-        return out.detach().cpu().numpy().reshape(x.shape)
-
-    return apply
-
-
-def _graphcast_impl(path: Path) -> Callable[[np.ndarray], np.ndarray]:
-    """Return an apply function backed by the official ``graphcast`` package."""
-
-    model = dm_graphcast.load_checkpoint(path)
-
-    def apply(x: np.ndarray) -> np.ndarray:
-        arr = np.asarray(x, dtype=np.float32)
-        out = model(arr)
-        return np.asarray(out, dtype=np.float32)
-
-    return apply
-
-
 class GraphCastModel:
-    """Interface compatible GraphCast model.
+    """Thin wrapper around the official GraphCast implementation.
 
     Parameters
     ----------
     checkpoint_path:
-        Path to a ``.npz`` file storing the model parameters.  For the real
-        DeepMind model the wrapper expects the nested ``{"params": ...}`` format
-        produced by the official codebase.
+        Path to a checkpoint file readable by ``graphcast.load_checkpoint``.
     """
 
     def __init__(self, checkpoint_path: str | Path) -> None:
+        if not _GRAPHCAST_AVAILABLE:  # pragma: no cover - import guard
+            raise RuntimeError(
+                "The 'graphcast' package is required for GraphCastModel but was not found"
+            )
+
         path = Path(checkpoint_path)
         if not path.exists():  # pragma: no cover - defensive programming
             raise FileNotFoundError(f"GraphCast checkpoint not found at {path}")
 
-        self._w: np.ndarray | None
-        self._b: np.ndarray | None
-
         try:
-            w, b = _load_linear_params(path)
-        except ValueError:
-            if not _GRAPHCAST_AVAILABLE:
-                raise
-            self._w = None
-            self._b = None
-            self._apply = _graphcast_impl(path)
-        else:
-            self._w, self._b = w, b
-            if _TORCH_AVAILABLE:
-                self._apply = _torch_impl(w, b)
-            else:
-                self._apply = _numpy_impl(w, b)
+            self._model = dm_graphcast.load_checkpoint(path)
+        except Exception as exc:  # pragma: no cover - checkpoint issues
+            raise RuntimeError(f"Failed to load GraphCast checkpoint: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
     def infer(self, climate: ArrayLike) -> ArrayLike:
-        """Run inference on ``climate`` data."""
+        """Run inference on ``climate`` data using the loaded model."""
 
         if isinstance(climate, xr.DataArray):
             arr = climate.values.astype(np.float32)
-            result = self._apply(arr)
-            return xr.DataArray(result, coords=climate.coords, dims=climate.dims)
+            try:
+                out = self._model(arr)
+            except Exception as exc:  # pragma: no cover - runtime failure
+                raise RuntimeError(f"GraphCast inference failed: {exc}") from exc
+            return xr.DataArray(np.asarray(out, dtype=np.float32), coords=climate.coords, dims=climate.dims)
 
         arr = np.asarray(climate, dtype=np.float32)
-        return self._apply(arr)
+        try:
+            out = self._model(arr)
+        except Exception as exc:  # pragma: no cover - runtime failure
+            raise RuntimeError(f"GraphCast inference failed: {exc}") from exc
+        return np.asarray(out, dtype=np.float32)
 
-    def predict(self, features: pd.DataFrame, num_steps: int, step: int) -> pd.DataFrame:
-        """Generate deterministic forecasts using the loaded parameters."""
+    def predict(self, climate: ArrayLike, num_steps: int, step: int) -> ArrayLike:
+        """Run autoregressive forecasts for ``num_steps`` iterations."""
 
-        if self._w is None or self._b is None:
-            raise RuntimeError(
-                "Predict requires linear parameters 'w' and 'b'. The loaded checkpoint"
-                " did not contain these values."
-            )
-
-        last = features.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
-        state = last.to_numpy(dtype=np.float32)
-
-        rows: list[dict[str, Any]] = []
+        arr: ArrayLike = climate
         for _ in range(num_steps):
-            state = self._apply(state)  # type: ignore[arg-type]
-            rows.append(
-                {
-                    "latitude": float(state[0]),
-                    "longitude": float(state[1]),
-                    "max_wind": float(state[2]),
-                    "min_pressure": float(state[3]),
-                }
-            )
-        return pd.DataFrame(rows)
+            arr = self.infer(arr)
+        return arr
 
 
 __all__ = ["GraphCastModel"]

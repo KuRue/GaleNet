@@ -7,6 +7,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 from loguru import logger
 
 from ..data import HurricaneDataPipeline
@@ -26,9 +27,13 @@ class ForecastResult:
         DataFrame containing both the historical track and the forecasted
         points. A ``lead_time`` column stores the hour offset from the first
         observation.
+    fields:
+        Optional environmental fields returned by GraphCast as an
+        ``xarray`` object.
     """
 
     track: pd.DataFrame
+    fields: xr.DataArray | xr.Dataset | None = None
 
     def get_position(self, lead_time: int) -> tuple[float, float]:
         """Return the forecast position at a given lead time.
@@ -157,8 +162,12 @@ class GaleNetPipeline:
         # ------------------------------------------------------------------
         # Load and validate historical track
         # ------------------------------------------------------------------
+        from ..models.graphcast import GraphCastModel
+
+        is_graphcast = isinstance(self.model, GraphCastModel)
+
         data = self.data.load_hurricane_for_training(
-            storm_id, source=source, include_era5=False
+            storm_id, source=source, include_era5=is_graphcast
         )
         track = data["track"].copy().sort_values("timestamp").reset_index(drop=True)
 
@@ -183,11 +192,27 @@ class GaleNetPipeline:
         step = int(self.config.inference.time_step)
         num_steps = int(forecast_hours // step)
 
+        if is_graphcast:
+            era5 = data.get("era5")
+            if era5 is None:
+                raise RuntimeError(
+                    "GraphCastModel requires ERA5 environmental fields at 0.25° resolution"
+                )
+            try:
+                fields_forecast = self.model.infer(era5)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("GraphCast inference failed: {}", exc)
+                raise RuntimeError("GraphCast inference failed") from exc
+            model = _PersistenceModel()
+        else:
+            fields_forecast = None
+            model = self.model
+
         # ------------------------------------------------------------------
         # Run model (with optional ensemble)
         # ------------------------------------------------------------------
         def run_model():
-            return self.model.predict(processed, num_steps, step)
+            return model.predict(processed, num_steps, step)
 
         ensemble_cfg = getattr(self.config.inference, "ensemble", {})
         if getattr(ensemble_cfg, "enabled", False):
@@ -236,7 +261,7 @@ class GaleNetPipeline:
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("Forecast validation failed: {}", exc)
 
-        return ForecastResult(track=full_track)
+        return ForecastResult(track=full_track, fields=fields_forecast)
 
 
 class _PersistenceModel:

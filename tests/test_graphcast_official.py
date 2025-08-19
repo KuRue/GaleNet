@@ -1,4 +1,4 @@
-"""Tests for GraphCastModel when official graphcast package is available."""
+"""Tests for the GraphCastModel wrapper when the official package is present."""
 
 # flake8: noqa
 
@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 
 # Ensure src is on the path
@@ -16,7 +15,7 @@ import galenet.models.graphcast as gc  # type: ignore
 
 
 class _DummyModel:
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover - simple op
         return x + 1.0
 
 
@@ -26,26 +25,21 @@ class _DummyGraphCastModule:
         return _DummyModel()
 
 
-def test_inference_without_linear_params(monkeypatch, tmp_path):
+def test_inference_with_real_package(monkeypatch, tmp_path):
+    """GraphCastModel should delegate inference to the graphcast package."""
+
     ckpt_path = tmp_path / "params.npz"
-    np.savez(ckpt_path, something=np.array([1], dtype=np.float32))
+    np.savez(ckpt_path, dummy=np.array([1], dtype=np.float32))
 
     monkeypatch.setattr(gc, "dm_graphcast", _DummyGraphCastModule)
     monkeypatch.setattr(gc, "_GRAPHCAST_AVAILABLE", True)
 
     model = gc.GraphCastModel(str(ckpt_path))
-    arr = np.zeros((1, 4), dtype=np.float32)
+
+    arr = np.zeros((2, 4), dtype=np.float32)
     out = model.infer(arr)
     assert np.allclose(out, arr + 1.0)
-    assert model._w is None and model._b is None
 
-    features = pd.DataFrame(
-        {
-            "latitude": [0.0],
-            "longitude": [0.0],
-            "max_wind": [0.0],
-            "min_pressure": [0.0],
-        }
-    )
-    with pytest.raises(RuntimeError, match="requires linear parameters"):
-        model.predict(features, num_steps=1, step=6)
+    # Autoregressive prediction simply chains calls to infer
+    out2 = model.predict(arr, num_steps=2, step=6)
+    assert np.allclose(out2, arr + 2.0)
