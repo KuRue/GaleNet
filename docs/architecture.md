@@ -6,11 +6,10 @@ GaleNet combines classic hurricane science with modern deep learning.
 
 - **Data Pipeline** – normalizes HURDAT2/IBTrACS tracks and optionally merges
   ERA5 reanalysis patches.
-- **Neural Network Core** – minimal network with optional placeholder GraphCast
-  features; full GraphCast and Pangu‑Weather backbones are planned for later
-  phases.
+- **Neural Network Core** – supports a GraphCast backbone for physics‑informed
+  feature extraction; a Pangu‑Weather backbone is planned for later phases.
 - **Inference Pipeline** – the `GaleNetPipeline` class wraps preprocessing and
-  model execution to deliver track forecasts.
+  model execution, incorporating GraphCast outputs to guide track forecasts.
 
 ## Design Principles
 
