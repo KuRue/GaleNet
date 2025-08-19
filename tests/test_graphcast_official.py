@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import xarray as xr
 
 # Ensure src is on the path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
@@ -40,6 +41,15 @@ def test_inference_with_real_package(monkeypatch, tmp_path):
     out = model.infer(arr)
     assert np.allclose(out, arr + 1.0)
 
+    da = xr.DataArray(arr, dims=["t", "c"])
+    da_out = model.infer(da)
+    assert isinstance(da_out, xr.DataArray)
+    assert np.allclose(da_out.values, arr + 1.0)
+
     # Autoregressive prediction simply chains calls to infer
     out2 = model.predict(arr, num_steps=2, step=6)
     assert np.allclose(out2, arr + 2.0)
+
+    da_out2 = model.predict(da, num_steps=2, step=6)
+    assert isinstance(da_out2, xr.DataArray)
+    assert np.allclose(da_out2.values, arr + 2.0)
