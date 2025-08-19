@@ -101,6 +101,19 @@ def _torch_impl(w: np.ndarray, b: np.ndarray) -> Callable[[np.ndarray], np.ndarr
     return apply
 
 
+def _graphcast_impl(path: Path) -> Callable[[np.ndarray], np.ndarray]:
+    """Return an apply function backed by the official ``graphcast`` package."""
+
+    model = dm_graphcast.load_checkpoint(path)
+
+    def apply(x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=np.float32)
+        out = model(arr)
+        return np.asarray(out, dtype=np.float32)
+
+    return apply
+
+
 class GraphCastModel:
     """Interface compatible GraphCast model.
 
@@ -117,15 +130,23 @@ class GraphCastModel:
         if not path.exists():  # pragma: no cover - defensive programming
             raise FileNotFoundError(f"GraphCast checkpoint not found at {path}")
 
-        # When the official GraphCast library is installed we could deserialize
-        # the full model here.  The tests exercise the light‑weight linear
-        # re‑implementation, so we always extract the raw parameters.
-        w, b = _load_linear_params(path)
+        self._w: np.ndarray | None
+        self._b: np.ndarray | None
 
-        if _TORCH_AVAILABLE:
-            self._apply = _torch_impl(w, b)
+        try:
+            w, b = _load_linear_params(path)
+        except ValueError:
+            if not _GRAPHCAST_AVAILABLE:
+                raise
+            self._w = None
+            self._b = None
+            self._apply = _graphcast_impl(path)
         else:
-            self._apply = _numpy_impl(w, b)
+            self._w, self._b = w, b
+            if _TORCH_AVAILABLE:
+                self._apply = _torch_impl(w, b)
+            else:
+                self._apply = _numpy_impl(w, b)
 
     # ------------------------------------------------------------------
     # Public API
@@ -143,6 +164,12 @@ class GraphCastModel:
 
     def predict(self, features: pd.DataFrame, num_steps: int, step: int) -> pd.DataFrame:
         """Generate deterministic forecasts using the loaded parameters."""
+
+        if self._w is None or self._b is None:
+            raise RuntimeError(
+                "Predict requires linear parameters 'w' and 'b'. The loaded checkpoint"
+                " did not contain these values."
+            )
 
         last = features.iloc[-1][["latitude", "longitude", "max_wind", "min_pressure"]]
         state = last.to_numpy(dtype=np.float32)
