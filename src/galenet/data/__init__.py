@@ -1,12 +1,10 @@
 """Data loading, preprocessing, and validation modules for GaleNet."""
 
 # Re-export data loaders so users can access them from ``galenet.data``
-from .loaders import (
-    ERA5Loader,
-    HURDAT2Loader,
-    HurricaneDataPipeline,
-    IBTrACSLoader,
-)
+from .era5 import ERA5Loader
+from .hurdat2 import HURDAT2Loader
+from .ibtracs import IBTrACSLoader
+from .pipeline import HurricaneDataPipeline
 from .processors import (
     ERA5Preprocessor,
     HurricanePreprocessor,
