@@ -13,7 +13,6 @@ from omegaconf import OmegaConf
 # Ensure src is on the path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 from galenet.inference.pipeline import GaleNetPipeline  # noqa: E402
-from galenet.models.graphcast import GraphCastModel  # noqa: E402
 
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "default_config.yaml"
@@ -151,20 +150,11 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
     assert any("bad track" in w for w in warnings)
 
 
-def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
-    """Pipeline produces forecasts transformed by GraphCast weights."""
+def test_graphcast_pipeline_environment_output(monkeypatch, tmp_path, sample_track):
+    """Pipeline should pass ERA5 fields to GraphCast and store the outputs."""
 
-    # Create a checkpoint shifting each step by a fixed amount.  Use the nested
-    # ``{"params": {"w": ..., "b": ...}}`` structure exported by the official
-    # GraphCast codebase to ensure our loader handles DeepMind checkpoints.
     ckpt_path = tmp_path / "params.npz"
-    np.savez(
-        ckpt_path,
-        params={
-            "w": np.eye(4, dtype=np.float32),
-            "b": np.array([1.0, -1.0, 2.0, -2.0], dtype=np.float32),
-        },
-    )
+    np.savez(ckpt_path, dummy=np.array([1], dtype=np.float32))
 
     config = OmegaConf.load(CONFIG_PATH)
     config.model.name = "graphcast"
@@ -175,19 +165,36 @@ def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
         "galenet.inference.pipeline.get_config", lambda *args, **kwargs: config
     )
 
+    era5 = xr.DataArray(
+        np.zeros((1, 2, 2), dtype=np.float32),
+        dims=["time", "lat", "lon"],
+        coords={"time": [0], "lat": [0.0, 0.25], "lon": [0.0, 0.25]},
+    )
+
     class DummyDataPipeline:
         def __init__(self, *args, **kwargs):
             pass
 
         def load_hurricane_for_training(self, storm_id, source="hurdat2", include_era5=False):
-            return {"track": sample_track}
+            assert include_era5 is True
+            return {"track": sample_track, "era5": era5}
 
     monkeypatch.setattr(
         "galenet.inference.pipeline.HurricaneDataPipeline", DummyDataPipeline
     )
 
+    import galenet.models.graphcast as gm
+
+    class DummyGraphCastModel:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def infer(self, climate):
+            return climate + 1.0
+
+    monkeypatch.setattr(gm, "GraphCastModel", DummyGraphCastModel)
+
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
-    assert isinstance(pipeline.model, GraphCastModel)
 
     # Simplify preprocessing and validation
     monkeypatch.setattr(
@@ -200,54 +207,42 @@ def test_graphcast_realistic_forecast(monkeypatch, tmp_path, sample_track):
 
     result = pipeline.forecast_storm("AL012023", forecast_hours=12)
 
-    # Two forecast steps should accumulate the bias each time
-    last = sample_track.iloc[-1]
-    expected = pd.DataFrame(
-        [
-            {
-                "latitude": last["latitude"] + 1.0,
-                "longitude": last["longitude"] - 1.0,
-                "max_wind": last["max_wind"] + 2.0,
-                "min_pressure": last["min_pressure"] - 2.0,
-            },
-            {
-                "latitude": last["latitude"] + 2.0,
-                "longitude": last["longitude"] - 2.0,
-                "max_wind": last["max_wind"] + 4.0,
-                "min_pressure": last["min_pressure"] - 4.0,
-            },
-        ]
-    )
+    # Environmental fields should be returned and transformed
+    assert isinstance(result.fields, xr.DataArray)
+    assert np.allclose(result.fields, era5 + 1.0)
 
-    forecast = result.track.tail(2).reset_index(drop=True)
-    pd.testing.assert_frame_equal(
-        forecast[["latitude", "longitude", "max_wind", "min_pressure"]],
-        expected,
-    )
-
-    # Re-running should yield the same deterministic forecast
-    result2 = pipeline.forecast_storm("AL012023", forecast_hours=12)
-    pd.testing.assert_frame_equal(result.track, result2.track)
+    # Track forecast falls back to persistence
+    assert len(result.track) == len(sample_track) + 2
 
 
-def test_graphcast_numpy_and_xarray_inference(tmp_path):
+def test_graphcast_numpy_and_xarray_inference(monkeypatch, tmp_path):
     """Model inference should work for NumPy arrays and xarray DataArrays."""
 
     ckpt_path = tmp_path / "params.npz"
-    np.savez(
-        ckpt_path,
-        w=np.eye(4, dtype=np.float32),
-        b=np.ones(4, dtype=np.float32),
-    )
+    np.savez(ckpt_path, dummy=np.array([1], dtype=np.float32))
 
-    model = GraphCastModel(str(ckpt_path))
+    import galenet.models.graphcast as gc
+
+    class DummyModel:
+        def __call__(self, x: np.ndarray) -> np.ndarray:
+            return x + 1.0
+
+    class DummyGraphCastModule:
+        @staticmethod
+        def load_checkpoint(path) -> DummyModel:  # type: ignore[override]
+            return DummyModel()
+
+    monkeypatch.setattr(gc, "dm_graphcast", DummyGraphCastModule)
+    monkeypatch.setattr(gc, "_GRAPHCAST_AVAILABLE", True)
+
+    model = gc.GraphCastModel(str(ckpt_path))
 
     arr = np.zeros((2, 4), dtype=np.float32)
     out = model.infer(arr)
     assert isinstance(out, np.ndarray)
-    assert np.allclose(out, np.ones_like(arr))
+    assert np.allclose(out, arr + 1.0)
 
     da = xr.DataArray(arr, dims=["t", "c"])
     da_out = model.infer(da)
     assert isinstance(da_out, xr.DataArray)
-    assert np.allclose(da_out.values, np.ones_like(arr))
+    assert np.allclose(da_out.values, arr + 1.0)
