@@ -20,3 +20,6 @@ Key classes and functions exposed at the package level.
 - `GaleNetPipeline` – high‑level interface for generating hurricane forecasts.
 
 Refer to the source code in `src/galenet/` for full details on each component.
+
+See the [Data Pipeline](data_pipeline.md), [Training Guide](training.md), and
+[Evaluation Guide](evaluation.md) for end-to-end examples.

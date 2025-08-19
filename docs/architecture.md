@@ -6,8 +6,9 @@ GaleNet combines classic hurricane science with modern deep learning.
 
 - **Data Pipeline** – normalizes HURDAT2/IBTrACS tracks and optionally merges
   ERA5 reanalysis patches.
-- **Neural Network Core** – placeholder network used during prototyping; future
-  versions will integrate GraphCast and Pangu‑Weather backbones.
+- **Neural Network Core** – minimal network with optional placeholder GraphCast
+  features; full GraphCast and Pangu‑Weather backbones are planned for later
+  phases.
 - **Inference Pipeline** – the `GaleNetPipeline` class wraps preprocessing and
   model execution to deliver track forecasts.
 
@@ -19,3 +20,6 @@ GaleNet combines classic hurricane science with modern deep learning.
    overridden via command‑line arguments.
 3. **Reproducibility** – training scripts log checkpoints and configuration so
    experiments can be reproduced.
+
+See the [Training Guide](training.md) for how models are trained and the
+[Evaluation Guide](evaluation.md) for benchmarking approaches.

@@ -42,10 +42,10 @@ python scripts/evaluate_baselines.py data/sample_storms.json \
 The command reports track and intensity errors and writes a summary under
 `results/`. See the [Evaluation Guide](evaluation.md) for details.
 
-## GraphCast Integration Notes
+## GraphCast Placeholder
 
-GaleNet includes experimental hooks for initializing weights from the
-GraphCast model. Configure the GraphCast checkpoint in your YAML config:
+Experimental hooks expose placeholder GraphCast weights for upcoming
+integration. Configure the checkpoint in your YAML config:
 
 ```yaml
 model:
@@ -54,5 +54,5 @@ model:
     freeze_backbone: true
 ```
 
-During training, GraphCast features are fused with GaleNet's storm-specific
-heads, enabling fine-tuning on hurricane data.
+The weights are currently stubs and do not provide full GraphCast capability;
+future releases will fuse these features into the training loop.
