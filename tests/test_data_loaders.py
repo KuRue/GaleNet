@@ -28,11 +28,10 @@ except Exception:  # pragma: no cover - executed when torch missing
 training_stub = SimpleNamespace(HurricaneDataset=None, Trainer=None, mse_loss=None)
 sys.modules.setdefault("galenet.training", training_stub)
 
-from galenet.data.loaders import (
-    HURDAT2Loader,
-    ERA5Loader,
-    HurricaneDataPipeline,
-)  # noqa: E402
+from galenet.data.hurdat2 import HURDAT2Loader  # noqa: E402
+from galenet.data.ibtracs import IBTrACSLoader  # noqa: E402
+from galenet.data.era5 import ERA5Loader  # noqa: E402
+from galenet.data.pipeline import HurricaneDataPipeline  # noqa: E402
 from galenet.data.processors import ERA5Preprocessor  # noqa: E402
 from galenet.data.processors import HurricanePreprocessor
 from galenet.data.validators import HurricaneDataValidator  # noqa: E402
@@ -65,6 +64,31 @@ def temp_hurdat2_file(sample_hurdat2_data):
 
     # Cleanup
     temp_path.unlink()
+
+
+@pytest.fixture
+def temp_ibtracs_file():
+    """Create temporary IBTrACS NetCDF file."""
+    times = pd.to_datetime(["2023-01-01", "2023-01-02"])
+    ds = xr.Dataset(
+        {
+            "lat": (("storm", "time"), [[10.0, 11.0]]),
+            "lon": (("storm", "time"), [[20.0, 21.0]]),
+            "wmo_wind": (("storm", "time"), [[30, 40]]),
+            "wmo_pres": (("storm", "time"), [[1000, 995]]),
+        },
+        coords={"storm": [0], "time": times},
+    )
+    ds["sid"] = ("storm", [b"TESTSID"])
+    ds["name"] = ("storm", [b"TEST"])
+
+    with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
+        ds.to_netcdf(f.name)
+        path = Path(f.name)
+
+    yield path
+
+    path.unlink()
 
 
 @pytest.fixture
@@ -201,6 +225,23 @@ class TestHURDAT2Loader:
 
         with pytest.raises(ValueError):
             loader.get_storm('AL999999')
+
+
+class TestIBTrACSLoader:
+    """Test IBTrACS data loader."""
+
+    def test_load_and_convert(self, temp_ibtracs_file):
+        loader = IBTrACSLoader(temp_ibtracs_file)
+        ds = loader.load_data()
+        assert "storm" in ds.dims
+
+        storm_ds = loader.get_storm("TESTSID")
+        assert storm_ds.lat.size == 2
+
+        df = loader.to_dataframe("TESTSID")
+        assert len(df) == 2
+        assert df["storm_id"].iloc[0] == "TESTSID"
+        assert df["name"].iloc[0] == "TEST"
 
 
 class TestDataProcessors:
@@ -510,7 +551,7 @@ class TestERA5Loader:
     def test_download_retries(self, tmp_path, monkeypatch):
         """Ensure download retries on failure."""
         monkeypatch.setattr(
-            'galenet.data.loaders.get_config',
+            'galenet.data.era5.get_config',
             lambda *args, **kwargs: self._mock_config(),
         )
 
@@ -533,7 +574,7 @@ class TestERA5Loader:
     def test_download_failure_propagates_error(self, tmp_path, monkeypatch):
         """Ensure errors propagate after max retries."""
         monkeypatch.setattr(
-            'galenet.data.loaders.get_config',
+            'galenet.data.era5.get_config',
             lambda *args, **kwargs: self._mock_config(),
         )
 

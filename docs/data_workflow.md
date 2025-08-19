@@ -76,7 +76,7 @@ and merge them into a single dataset.
 
 ```python
 from datetime import datetime
-from galenet.data.loaders import ERA5Loader
+from galenet.data.era5 import ERA5Loader
 
 loader = ERA5Loader()
 path = loader.download_data(

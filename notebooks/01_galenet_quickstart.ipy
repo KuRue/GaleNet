@@ -43,7 +43,7 @@
     "import cartopy.feature as cfeature\n",
     "\n",
     "# GaleNet imports\n",
-    "from galenet.data.loaders import HURDAT2Loader, HurricaneDataPipeline\n",
+    "from galenet.data import HURDAT2Loader, HurricaneDataPipeline\n",
     "from galenet.data.processors import HurricanePreprocessor\n",
     "from galenet.data.validators import HurricaneDataValidator\n",
     "from galenet.utils import setup_logging\n",
