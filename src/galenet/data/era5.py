@@ -82,7 +82,9 @@ class ERA5Loader:
         while current_year <= end_date.year:
             period_start = max(start_date, datetime(current_year, 1, 1))
             period_end = min(end_date, datetime(current_year, 12, 31))
-            path = self._download_single_period(period_start, period_end, bounds, variables)
+            path = self._download_single_period(
+                period_start, period_end, bounds, variables
+            )
             datasets.append(xr.open_dataset(path))
             current_year += 1
 
@@ -102,8 +104,9 @@ class ERA5Loader:
         variables: Optional[List[str]] = None,
     ) -> Path:
         """Download ERA5 data for a period confined to a single year."""
-        import cdsapi
         import time
+
+        import cdsapi
 
         if variables is None:
             # Default variables required by the preprocessing pipeline. This
@@ -227,7 +230,7 @@ class ERA5Loader:
                             "Check your network connection or API credentials."
                         ) from e
 
-                    sleep_time = 2 ** attempt
+                    sleep_time = 2**attempt
                     logger.warning(
                         f"ERA5 download failed (attempt {attempt + 1}/{max_retries}): {e}. "
                         f"Retrying in {sleep_time}s"
@@ -247,12 +250,19 @@ class ERA5Loader:
             if pressure_level_vars:
                 for level in pressure_levels:
                     lvl = int(level)
-                    if "u_component_of_wind" in merged and "v_component_of_wind" in merged:
-                        u = merged["u_component_of_wind"].sel(pressure_level=lvl).drop(
-                            "pressure_level"
+                    if (
+                        "u_component_of_wind" in merged
+                        and "v_component_of_wind" in merged
+                    ):
+                        u = (
+                            merged["u_component_of_wind"]
+                            .sel(pressure_level=lvl)
+                            .drop("pressure_level")  # type: ignore[arg-type]
                         )
-                        v = merged["v_component_of_wind"].sel(pressure_level=lvl).drop(
-                            "pressure_level"
+                        v = (
+                            merged["v_component_of_wind"]
+                            .sel(pressure_level=lvl)
+                            .drop("pressure_level")  # type: ignore[arg-type]
                         )
                         merged[f"u{level}"] = u
                         merged[f"v{level}"] = v

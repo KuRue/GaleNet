@@ -47,6 +47,11 @@ conda env create -f environment.yml
 conda activate galenet
 ```
 
+The provided environment installs the CPU build of PyTorch by default. If you
+have a compatible GPU, consult the [PyTorch installation
+guide](https://pytorch.org/get-started/locally/) to install the appropriate
+CUDA-enabled packages.
+
 3. Install the package:
 ```bash
 pip install -e .

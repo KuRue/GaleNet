@@ -6,23 +6,27 @@ from pathlib import Path
 from typing import Dict, Iterable, Sequence
 
 import numpy as np
-import yaml
+import yaml  # type: ignore[import-untyped]
 
-from .metrics import compute_metrics, DEFAULT_METRICS
+from .metrics import DEFAULT_METRICS, compute_metrics
 
 _CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "default_config.yaml"
 with open(_CONFIG_PATH) as _cfg:
     DEFAULT_BASELINES: Iterable[str] = yaml.safe_load(_cfg)["evaluation"]["baselines"]
 
 
-def persistence_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.ndarray:
+def persistence_baseline(
+    track: Sequence[Sequence[float]] | np.ndarray, forecast_steps: int
+) -> np.ndarray:
     """Simple persistence baseline: repeat last known position and intensity."""
     track_arr = np.asarray(track)
     last = track_arr[-1]
     return np.repeat(last[None, :], forecast_steps, axis=0)
 
 
-def cliper5_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.ndarray:
+def cliper5_baseline(
+    track: Sequence[Sequence[float]] | np.ndarray, forecast_steps: int
+) -> np.ndarray:
     """CLIPER5 baseline using mean motion over last 5 steps."""
     track_arr = np.asarray(track)
     if len(track_arr) < 2:
@@ -43,7 +47,9 @@ def cliper5_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> n
     return np.stack(preds, axis=0)
 
 
-def gfs_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.ndarray:
+def gfs_baseline(
+    track: Sequence[Sequence[float]] | np.ndarray, forecast_steps: int
+) -> np.ndarray:
     """GFS-like baseline using slightly accelerated motion."""
     track_arr = np.asarray(track)
     if len(track_arr) < 2:
@@ -64,7 +70,9 @@ def gfs_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.nd
     return np.stack(preds, axis=0)
 
 
-def ecmwf_baseline(track: Sequence[Sequence[float]], forecast_steps: int) -> np.ndarray:
+def ecmwf_baseline(
+    track: Sequence[Sequence[float]] | np.ndarray, forecast_steps: int
+) -> np.ndarray:
     """ECMWF-like baseline using slightly slower motion."""
     track_arr = np.asarray(track)
     if len(track_arr) < 2:
@@ -94,7 +102,7 @@ BASELINE_FUNCTIONS = {
 
 
 def run_baselines(
-    track: Sequence[Sequence[float]],
+    track: Sequence[Sequence[float]] | np.ndarray,
     forecast_steps: int,
     baselines: Iterable[str] | None = None,
 ) -> Dict[str, np.ndarray]:
@@ -153,15 +161,16 @@ def evaluate_baselines(
         summary[model_name] = {m: [] for m in metrics}
 
     for idx, storm in enumerate(storms):
-        history = storm[:history_steps]
-        truth = storm[history_steps : history_steps + forecast_steps]
+        storm_arr = np.asarray(storm)
+        history = storm_arr[:history_steps]
+        truth = storm_arr[history_steps : history_steps + forecast_steps]
         forecasts = run_baselines(history, forecast_steps, baselines)
         for name, pred in forecasts.items():
             results = compute_metrics(
-                pred[:, :2],
-                truth[:, :2],
-                pred[:, 2],
-                truth[:, 2],
+                pred[:, :2].tolist(),
+                truth[:, :2].tolist(),
+                pred[:, 2].tolist(),
+                truth[:, 2].tolist(),
                 metrics,
             )
             for metric_name, value in results.items():
@@ -170,10 +179,10 @@ def evaluate_baselines(
         if model_forecasts is not None:
             pred = model_forecasts[idx]
             results = compute_metrics(
-                pred[:, :2],
-                truth[:, :2],
-                pred[:, 2],
-                truth[:, 2],
+                pred[:, :2].tolist(),
+                truth[:, :2].tolist(),
+                pred[:, 2].tolist(),
+                truth[:, 2].tolist(),
                 metrics,
             )
             for metric_name, value in results.items():

@@ -12,6 +12,11 @@ from loguru import logger
 from ..utils.config import get_config
 
 
+def _parse_radius(value: str) -> float:
+    """Parse a wind radius value, returning ``np.nan`` when missing."""
+    return int(value) if value and value != "-999" else np.nan
+
+
 class HURDAT2Loader:
     """Loader for HURDAT2 Atlantic hurricane database."""
 
@@ -44,7 +49,7 @@ class HURDAT2Loader:
         logger.info(f"Loading HURDAT2 data from {self.data_path}")
 
         records = []
-        current_storm = None
+        current_storm: Optional[Dict[str, object]] = None
 
         with open(self.data_path, "r") as f:
             for line in f:
@@ -65,6 +70,8 @@ class HURDAT2Loader:
 
                 # Data line
                 else:
+                    if current_storm is None:
+                        continue
                     parts = [p.strip() for p in line.split(",")]
 
                     # Parse date and time
@@ -117,10 +124,10 @@ class HURDAT2Loader:
                     # Add wind radii if available
                     if len(parts) > 8:
                         wind_radii = {
-                            "34kt_ne": int(parts[8]) if parts[8] and parts[8] != "-999" else np.nan,
-                            "34kt_se": int(parts[9]) if parts[9] and parts[9] != "-999" else np.nan,
-                            "34kt_sw": int(parts[10]) if parts[10] and parts[10] != "-999" else np.nan,
-                            "34kt_nw": int(parts[11]) if parts[11] and parts[11] != "-999" else np.nan,
+                            "34kt_ne": _parse_radius(parts[8]),
+                            "34kt_se": _parse_radius(parts[9]),
+                            "34kt_sw": _parse_radius(parts[10]),
+                            "34kt_nw": _parse_radius(parts[11]),
                         }
                         record.update(wind_radii)
 
@@ -144,6 +151,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         storm_data = self._data[self._data["storm_id"] == storm_id].copy()
 
@@ -166,6 +174,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         year_data = self._data[self._data["timestamp"].dt.year == year]
         return sorted(year_data["storm_id"].unique())
@@ -181,6 +190,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         name_upper = name.upper()
         matches = self._data[self._data["name"] == name_upper]
@@ -194,6 +204,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         storms: Dict[str, str] = {}
         for storm_id in self._data["storm_id"].unique():

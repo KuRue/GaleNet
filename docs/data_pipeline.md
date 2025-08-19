@@ -116,7 +116,9 @@ variables at 0.25° resolution and provide them to GraphCast during processing.
 
 ## Preparing Pangu Inputs
 
-Pangu-Weather ingests a richer 3D ERA5 cube to supply atmospheric context.
+Pangu-Weather ingests a richer 3D ERA5 cube to supply atmospheric context. The
+backbone is currently used for inference only; training or fine-tuning Pangu is
+not supported.
 
 1. **Select Variables** – Request the surface and pressure‑level fields needed
    by Pangu:
@@ -158,5 +160,5 @@ Pangu-Weather ingests a richer 3D ERA5 cube to supply atmospheric context.
    ```
 
 This configuration prepares the required ERA5 data for Pangu during
-preprocessing.
+preprocessing. The Pangu weights remain fixed and are only used for inference.
 

@@ -15,7 +15,7 @@ import pytest
 import xarray as xr
 
 # Add src to path
-sys.path.append(str(Path(__file__).parent.parent / 'src'))
+sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 # Stub out heavy training/torch dependencies for lightweight tests when torch
 # is unavailable.  If torch is installed we use the real library so other tests
@@ -28,9 +28,9 @@ except Exception:  # pragma: no cover - executed when torch missing
 training_stub = SimpleNamespace(HurricaneDataset=None, Trainer=None, mse_loss=None)
 sys.modules.setdefault("galenet.training", training_stub)
 
+from galenet.data.era5 import ERA5Loader  # noqa: E402
 from galenet.data.hurdat2 import HURDAT2Loader  # noqa: E402
 from galenet.data.ibtracs import IBTrACSLoader  # noqa: E402
-from galenet.data.era5 import ERA5Loader  # noqa: E402
 from galenet.data.pipeline import HurricaneDataPipeline  # noqa: E402
 from galenet.data.processors import ERA5Preprocessor  # noqa: E402
 from galenet.data.processors import HurricanePreprocessor
@@ -56,7 +56,7 @@ AL122005,     KATRINA,     34,
 @pytest.fixture
 def temp_hurdat2_file(sample_hurdat2_data):
     """Create temporary HURDAT2 file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         f.write(sample_hurdat2_data)
         temp_path = Path(f.name)
 
@@ -94,23 +94,25 @@ def temp_ibtracs_file():
 @pytest.fixture
 def sample_track_df():
     """Create sample hurricane track DataFrame."""
-    dates = pd.date_range('2023-09-05', periods=10, freq='6H')
-    return pd.DataFrame({
-        'timestamp': dates,
-        'latitude': np.linspace(15.0, 25.0, 10),
-        'longitude': np.linspace(-45.0, -65.0, 10),
-        'max_wind': np.linspace(30, 150, 10),
-        'min_pressure': np.linspace(1005, 920, 10),
-        'storm_id': 'AL092023',
-        'name': 'LEE'
-    })
+    dates = pd.date_range("2023-09-05", periods=10, freq="6H")
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "latitude": np.linspace(15.0, 25.0, 10),
+            "longitude": np.linspace(-45.0, -65.0, 10),
+            "max_wind": np.linspace(30, 150, 10),
+            "min_pressure": np.linspace(1005, 920, 10),
+            "storm_id": "AL092023",
+            "name": "LEE",
+        }
+    )
 
 
 @pytest.fixture
 def sample_era5_data():
     """Create sample ERA5 dataset."""
     # Create coordinates
-    time = pd.date_range('2023-09-05', periods=24, freq='H')
+    time = pd.date_range("2023-09-05", periods=24, freq="H")
     lat = np.arange(30, 10, -0.25)
     lon = np.arange(-70, -40, 0.25)
 
@@ -119,22 +121,42 @@ def sample_era5_data():
 
     ds = xr.Dataset(
         {
-            'u10': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
-            'v10': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
-            'msl': xr.DataArray(np.random.randn(*shape) * 10 + 1013, dims=['time', 'latitude', 'longitude']),
-            't2m': xr.DataArray(np.random.randn(*shape) * 5 + 298, dims=['time', 'latitude', 'longitude']),
-            'd2m': xr.DataArray(np.random.randn(*shape) * 5 + 293, dims=['time', 'latitude', 'longitude']),
-            'u200': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
-            'v200': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
-            'u850': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
-            'v850': xr.DataArray(np.random.randn(*shape), dims=['time', 'latitude', 'longitude']),
-            'sst': xr.DataArray(np.random.randn(*shape) * 2 + 300, dims=['time', 'latitude', 'longitude']),
+            "u10": xr.DataArray(
+                np.random.randn(*shape), dims=["time", "latitude", "longitude"]
+            ),
+            "v10": xr.DataArray(
+                np.random.randn(*shape), dims=["time", "latitude", "longitude"]
+            ),
+            "msl": xr.DataArray(
+                np.random.randn(*shape) * 10 + 1013,
+                dims=["time", "latitude", "longitude"],
+            ),
+            "t2m": xr.DataArray(
+                np.random.randn(*shape) * 5 + 298,
+                dims=["time", "latitude", "longitude"],
+            ),
+            "d2m": xr.DataArray(
+                np.random.randn(*shape) * 5 + 293,
+                dims=["time", "latitude", "longitude"],
+            ),
+            "u200": xr.DataArray(
+                np.random.randn(*shape), dims=["time", "latitude", "longitude"]
+            ),
+            "v200": xr.DataArray(
+                np.random.randn(*shape), dims=["time", "latitude", "longitude"]
+            ),
+            "u850": xr.DataArray(
+                np.random.randn(*shape), dims=["time", "latitude", "longitude"]
+            ),
+            "v850": xr.DataArray(
+                np.random.randn(*shape), dims=["time", "latitude", "longitude"]
+            ),
+            "sst": xr.DataArray(
+                np.random.randn(*shape) * 2 + 300,
+                dims=["time", "latitude", "longitude"],
+            ),
         },
-        coords={
-            'time': time,
-            'latitude': lat,
-            'longitude': lon
-        }
+        coords={"time": time, "latitude": lat, "longitude": lon},
     )
 
     return ds
@@ -183,29 +205,29 @@ class TestHURDAT2Loader:
 
         # Check data loaded
         assert len(df) > 0
-        assert 'storm_id' in df.columns
-        assert 'timestamp' in df.columns
-        assert 'latitude' in df.columns
+        assert "storm_id" in df.columns
+        assert "timestamp" in df.columns
+        assert "latitude" in df.columns
 
         # Check we have 2 storms
-        assert len(df['storm_id'].unique()) == 2
-        assert 'AL092023' in df['storm_id'].values
-        assert 'AL122005' in df['storm_id'].values
+        assert len(df["storm_id"].unique()) == 2
+        assert "AL092023" in df["storm_id"].values
+        assert "AL122005" in df["storm_id"].values
 
     def test_get_storm(self, temp_hurdat2_file):
         """Test getting specific storm."""
         loader = HURDAT2Loader(temp_hurdat2_file)
 
         # Get Lee (2023)
-        lee = loader.get_storm('AL092023')
+        lee = loader.get_storm("AL092023")
         assert len(lee) == 4
-        assert lee['name'].iloc[0] == 'LEE'
-        assert lee['max_wind'].max() == 40
+        assert lee["name"].iloc[0] == "LEE"
+        assert lee["max_wind"].max() == 40
 
         # Get Katrina (2005)
-        katrina = loader.get_storm('AL122005')
+        katrina = loader.get_storm("AL122005")
         assert len(katrina) == 4
-        assert katrina['name'].iloc[0] == 'KATRINA'
+        assert katrina["name"].iloc[0] == "KATRINA"
 
     def test_get_storms_by_year(self, temp_hurdat2_file):
         """Test getting storms by year."""
@@ -213,18 +235,18 @@ class TestHURDAT2Loader:
 
         storms_2023 = loader.get_storms_by_year(2023)
         assert len(storms_2023) == 1
-        assert storms_2023[0] == 'AL092023'
+        assert storms_2023[0] == "AL092023"
 
         storms_2005 = loader.get_storms_by_year(2005)
         assert len(storms_2005) == 1
-        assert storms_2005[0] == 'AL122005'
+        assert storms_2005[0] == "AL122005"
 
     def test_missing_storm(self, temp_hurdat2_file):
         """Test error handling for missing storm."""
         loader = HURDAT2Loader(temp_hurdat2_file)
 
         with pytest.raises(ValueError):
-            loader.get_storm('AL999999')
+            loader.get_storm("AL999999")
 
 
 class TestIBTrACSLoader:
@@ -257,10 +279,10 @@ class TestDataProcessors:
         assert set(normalized.columns) == set(sample_track_df.columns)
 
         # Check normalization applied
-        assert abs(normalized['latitude'].mean()) < 1e-10
-        assert abs(normalized['longitude'].mean()) < 1e-10
-        assert abs(normalized['latitude'].std() - 1.0) < 1e-10
-        assert abs(normalized['longitude'].std() - 1.0) < 1e-10
+        assert abs(normalized["latitude"].mean()) < 1e-10
+        assert abs(normalized["longitude"].mean()) < 1e-10
+        assert abs(normalized["latitude"].std() - 1.0) < 1e-10
+        assert abs(normalized["longitude"].std() - 1.0) < 1e-10
 
     def test_create_track_features(self, sample_track_df):
         """Test feature engineering."""
@@ -269,18 +291,18 @@ class TestDataProcessors:
         features = preprocessor.create_track_features(sample_track_df)
 
         # Check new features created
-        assert 'lat_velocity' in features.columns
-        assert 'lon_velocity' in features.columns
-        assert 'speed' in features.columns
-        assert 'heading' in features.columns
-        assert 'wind_change' in features.columns
-        assert 'hour_sin' in features.columns
-        assert 'hour_cos' in features.columns
+        assert "lat_velocity" in features.columns
+        assert "lon_velocity" in features.columns
+        assert "speed" in features.columns
+        assert "heading" in features.columns
+        assert "wind_change" in features.columns
+        assert "hour_sin" in features.columns
+        assert "hour_cos" in features.columns
 
         # Check feature values reasonable
-        assert features['speed'].min() >= 0
-        assert features['heading'].min() >= -180
-        assert features['heading'].max() <= 180
+        assert features["speed"].min() >= 0
+        assert features["heading"].min() >= -180
+        assert features["heading"].max() <= 180
 
     def test_prepare_sequences(self, sample_track_df):
         """Test sequence preparation."""
@@ -288,9 +310,7 @@ class TestDataProcessors:
 
         features = preprocessor.create_track_features(sample_track_df)
         inputs, targets = preprocessor.prepare_sequences(
-            features,
-            sequence_length=4,
-            forecast_length=2
+            features, sequence_length=4, forecast_length=2
         )
 
         # Check shapes
@@ -301,7 +321,7 @@ class TestDataProcessors:
         assert targets.shape[1] == 2  # forecast length
 
         # Check values are from original data
-        assert np.allclose(inputs[0, 0, 0], features['latitude'].iloc[0])
+        assert np.allclose(inputs[0, 0, 0], features["latitude"].iloc[0])
 
 
 class TestERA5Preprocessor:
@@ -312,10 +332,7 @@ class TestERA5Preprocessor:
         preprocessor = ERA5Preprocessor()
 
         patch = preprocessor.extract_patches(
-            sample_era5_data,
-            center_lat=20.0,
-            center_lon=-55.0,
-            patch_size=10.0
+            sample_era5_data, center_lat=20.0, center_lon=-55.0, patch_size=10.0
         )
 
         # Check patch size
@@ -327,7 +344,7 @@ class TestERA5Preprocessor:
         assert 35 <= lon_size <= 45
 
         # Check all variables present
-        for var in ['u10', 'v10', 'msl', 't2m', 'sst']:
+        for var in ["u10", "v10", "msl", "t2m", "sst"]:
             assert var in patch.data_vars
 
     def test_compute_derived_fields(self, sample_era5_data):
@@ -336,80 +353,77 @@ class TestERA5Preprocessor:
 
         # Extract a patch first
         patch = preprocessor.extract_patches(
-            sample_era5_data,
-            center_lat=20.0,
-            center_lon=-55.0,
-            patch_size=10.0
+            sample_era5_data, center_lat=20.0, center_lon=-55.0, patch_size=10.0
         )
 
         # Compute derived fields
         enhanced = preprocessor.compute_derived_fields(patch)
 
         # Check new fields
-        assert 'wind_speed' in enhanced
-        assert 'wind_direction' in enhanced
-        assert 'vorticity_10m' in enhanced
-        assert 'convergence_10m' in enhanced
-        assert 'vertical_wind_shear' in enhanced
-        assert 'vertical_wind_shear_u' in enhanced
-        assert 'vertical_wind_shear_v' in enhanced
-        assert 'relative_humidity' in enhanced
-        assert 'specific_humidity' in enhanced
-        assert 'dewpoint_depression' in enhanced
+        assert "wind_speed" in enhanced
+        assert "wind_direction" in enhanced
+        assert "vorticity_10m" in enhanced
+        assert "convergence_10m" in enhanced
+        assert "vertical_wind_shear" in enhanced
+        assert "vertical_wind_shear_u" in enhanced
+        assert "vertical_wind_shear_v" in enhanced
+        assert "relative_humidity" in enhanced
+        assert "specific_humidity" in enhanced
+        assert "dewpoint_depression" in enhanced
 
         # Check wind speed calculation
-        expected_speed = np.sqrt(patch['u10']**2 + patch['v10']**2)
+        expected_speed = np.sqrt(patch["u10"] ** 2 + patch["v10"] ** 2)
         np.testing.assert_allclose(
-            enhanced['wind_speed'].values,
-            expected_speed.values,
-            rtol=1e-5
+            enhanced["wind_speed"].values, expected_speed.values, rtol=1e-5
         )
 
         # Check vertical wind shear calculation
-        expected_shear = np.sqrt((patch['u200'] - patch['u850'])**2 + (patch['v200'] - patch['v850'])**2)
-        np.testing.assert_allclose(
-            enhanced['vertical_wind_shear'].values,
-            expected_shear.values,
-            rtol=1e-5
+        expected_shear = np.sqrt(
+            (patch["u200"] - patch["u850"]) ** 2 + (patch["v200"] - patch["v850"]) ** 2
         )
         np.testing.assert_allclose(
-            enhanced['vertical_wind_shear_u'].values,
-            (patch['u200'] - patch['u850']).values,
+            enhanced["vertical_wind_shear"].values, expected_shear.values, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            enhanced["vertical_wind_shear_u"].values,
+            (patch["u200"] - patch["u850"]).values,
             rtol=1e-5,
         )
         np.testing.assert_allclose(
-            enhanced['vertical_wind_shear_v'].values,
-            (patch['v200'] - patch['v850']).values,
+            enhanced["vertical_wind_shear_v"].values,
+            (patch["v200"] - patch["v850"]).values,
             rtol=1e-5,
         )
 
         # Check relative humidity calculation
-        t_c = patch['t2m'] - 273.15
-        td_c = patch['d2m'] - 273.15
-        expected_rh = 100.0 * np.exp((17.625 * td_c) / (243.04 + td_c)) / np.exp((17.625 * t_c) / (243.04 + t_c))
+        t_c = patch["t2m"] - 273.15
+        td_c = patch["d2m"] - 273.15
+        expected_rh = (
+            100.0
+            * np.exp((17.625 * td_c) / (243.04 + td_c))
+            / np.exp((17.625 * t_c) / (243.04 + t_c))
+        )
         expected_rh = xr.where(expected_rh > 100, 100, expected_rh)
         expected_rh = xr.where(expected_rh < 0, 0, expected_rh)
         np.testing.assert_allclose(
-            enhanced['relative_humidity'].values,
-            expected_rh.values,
-            rtol=1e-5
+            enhanced["relative_humidity"].values, expected_rh.values, rtol=1e-5
         )
 
         # Check specific humidity calculation
-        td_c = patch['d2m'] - 273.15
-        p_hpa = patch['msl'] / 100.0
+        td_c = patch["d2m"] - 273.15
+        p_hpa = patch["msl"] / 100.0
         e = 6.112 * np.exp((17.67 * td_c) / (td_c + 243.5))
         expected_q = (0.622 * e) / (p_hpa - 0.378 * e)
         np.testing.assert_allclose(
-            enhanced['specific_humidity'].values,
+            enhanced["specific_humidity"].values,
             expected_q.values,
             rtol=1e-5,
         )
 
         # Check dewpoint depression calculation
-        expected_dd = patch['t2m'] - patch['d2m']
+        expected_dd = patch["t2m"] - patch["d2m"]
         np.testing.assert_allclose(
-            enhanced['dewpoint_depression'].values,
+            enhanced["dewpoint_depression"].values,
             expected_dd.values,
             rtol=1e-5,
         )
@@ -446,15 +460,19 @@ class TestERA5Preprocessor:
         )
         enhanced = preprocessor.compute_derived_fields(patch)
 
-        vars_to_norm = ['u10', 'v10', 'specific_humidity', 'vertical_wind_shear']
-        normalized = preprocessor.normalize_variables(enhanced, fit=True, variables=vars_to_norm)
+        vars_to_norm = ["u10", "v10", "specific_humidity", "vertical_wind_shear"]
+        normalized = preprocessor.normalize_variables(
+            enhanced, fit=True, variables=vars_to_norm
+        )
 
         for var in vars_to_norm:
             np.testing.assert_allclose(float(normalized[var].mean()), 0.0, atol=1e-6)
             np.testing.assert_allclose(float(normalized[var].std()), 1.0, atol=1e-6)
 
         # Apply again without fitting to ensure same result
-        normalized2 = preprocessor.normalize_variables(enhanced, fit=False, variables=vars_to_norm)
+        normalized2 = preprocessor.normalize_variables(
+            enhanced, fit=False, variables=vars_to_norm
+        )
         for var in vars_to_norm:
             np.testing.assert_allclose(
                 normalized[var].values,
@@ -480,36 +498,40 @@ class TestDataValidators:
         validator = HurricaneDataValidator()
 
         # Create invalid track
-        bad_track = pd.DataFrame({
-            'timestamp': pd.date_range('2023-09-05', periods=3, freq='6H'),
-            'latitude': [15.0, 200.0, 25.0],  # Invalid latitude
-            'longitude': [-45.0, -50.0, -55.0],
-            'max_wind': [30, 40, 50]
-        })
+        bad_track = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2023-09-05", periods=3, freq="6H"),
+                "latitude": [15.0, 200.0, 25.0],  # Invalid latitude
+                "longitude": [-45.0, -50.0, -55.0],
+                "max_wind": [30, 40, 50],
+            }
+        )
 
         is_valid, errors = validator.validate_track(bad_track)
 
         assert not is_valid
         assert len(errors) > 0
-        assert any('latitude' in error.lower() for error in errors)
+        assert any("latitude" in error.lower() for error in errors)
 
     def test_validate_intensity_physics(self):
         """Test physics validation."""
         validator = HurricaneDataValidator()
 
         # Create physically inconsistent data
-        track = pd.DataFrame({
-            'timestamp': pd.date_range('2023-09-05', periods=3, freq='6H'),
-            'latitude': [15.0, 16.0, 17.0],
-            'longitude': [-45.0, -46.0, -47.0],
-            'max_wind': [150, 150, 150],  # Very high wind
-            'min_pressure': [1000, 1000, 1000]  # Inconsistent pressure
-        })
+        track = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2023-09-05", periods=3, freq="6H"),
+                "latitude": [15.0, 16.0, 17.0],
+                "longitude": [-45.0, -46.0, -47.0],
+                "max_wind": [150, 150, 150],  # Very high wind
+                "min_pressure": [1000, 1000, 1000],  # Inconsistent pressure
+            }
+        )
 
         is_valid, errors = validator.validate_intensity_physics(track)
 
         assert not is_valid
-        assert any('wind-pressure' in error.lower() for error in errors)
+        assert any("wind-pressure" in error.lower() for error in errors)
 
 
 class TestHurricaneDataPipeline:
@@ -520,7 +542,9 @@ class TestHurricaneDataPipeline:
 
         pipeline = HurricaneDataPipeline.__new__(HurricaneDataPipeline)
         pipeline.hurdat2 = MagicMock()
-        pipeline.hurdat2.get_storms_by_year.side_effect = lambda y: storms_by_year.get(y, [])
+        pipeline.hurdat2.get_storms_by_year.side_effect = lambda y: storms_by_year.get(
+            y, []
+        )
         pipeline.hurdat2.get_storm.side_effect = lambda sid: storms[sid]
 
         result = pipeline.prepare_training_dataset([2022, 2023], min_intensity=64)
@@ -551,14 +575,14 @@ class TestERA5Loader:
     def test_download_retries(self, tmp_path, monkeypatch):
         """Ensure download retries on failure."""
         monkeypatch.setattr(
-            'galenet.data.era5.get_config',
+            "galenet.data.era5.get_config",
             lambda *args, **kwargs: self._mock_config(),
         )
 
         mock_client = MagicMock()
-        mock_client.retrieve.side_effect = [Exception('boom'), None]
-        monkeypatch.setattr(cdsapi, 'Client', lambda **kwargs: mock_client)
-        monkeypatch.setattr('time.sleep', lambda s: None)
+        mock_client.retrieve.side_effect = [Exception("boom"), None]
+        monkeypatch.setattr(cdsapi, "Client", lambda **kwargs: mock_client)
+        monkeypatch.setattr("time.sleep", lambda s: None)
 
         loader = ERA5Loader(cache_dir=tmp_path)
 
@@ -566,7 +590,7 @@ class TestERA5Loader:
             datetime(2023, 1, 1),
             datetime(2023, 1, 1),
             (10, -20, 5, -15),
-            variables=['var'],
+            variables=["var"],
         )
 
         assert mock_client.retrieve.call_count == 2
@@ -574,14 +598,14 @@ class TestERA5Loader:
     def test_download_failure_propagates_error(self, tmp_path, monkeypatch):
         """Ensure errors propagate after max retries."""
         monkeypatch.setattr(
-            'galenet.data.era5.get_config',
+            "galenet.data.era5.get_config",
             lambda *args, **kwargs: self._mock_config(),
         )
 
         mock_client = MagicMock()
-        mock_client.retrieve.side_effect = Exception('401 Unauthorized')
-        monkeypatch.setattr(cdsapi, 'Client', lambda **kwargs: mock_client)
-        monkeypatch.setattr('time.sleep', lambda s: None)
+        mock_client.retrieve.side_effect = Exception("401 Unauthorized")
+        monkeypatch.setattr(cdsapi, "Client", lambda **kwargs: mock_client)
+        monkeypatch.setattr("time.sleep", lambda s: None)
 
         loader = ERA5Loader(cache_dir=tmp_path)
 
@@ -590,10 +614,10 @@ class TestERA5Loader:
                 datetime(2023, 1, 1),
                 datetime(2023, 1, 1),
                 (10, -20, 5, -15),
-                variables=['var'],
+                variables=["var"],
             )
 
-        assert 'API credentials' in str(exc.value)
+        assert "API credentials" in str(exc.value)
         assert mock_client.retrieve.call_count == 3
 
     def test_yearly_caching_reuses_files(self, tmp_path, monkeypatch):
@@ -633,7 +657,9 @@ class TestERA5Loader:
 
         calls.clear()
         # Request one of the years again; should hit cache and avoid new downloads
-        loader.download_data(datetime(2022, 12, 30), datetime(2022, 12, 31), bounds, variables=["u10"])
+        loader.download_data(
+            datetime(2022, 12, 30), datetime(2022, 12, 31), bounds, variables=["u10"]
+        )
         assert len(calls) == 0
 
     def test_multi_year_caching(self, tmp_path, monkeypatch):
@@ -700,7 +726,11 @@ class TestERA5Loader:
                         dims=["time", "latitude", "longitude"],
                     )
                 },
-                coords={"time": times, "latitude": [0], "longitude": [lon_min, lon_max]},
+                coords={
+                    "time": times,
+                    "latitude": [0],
+                    "longitude": [lon_min, lon_max],
+                },
             )
             fname = tmp_path / f"era5_patch_{len(calls)}.nc"
             ds.to_netcdf(fname)
@@ -708,7 +738,9 @@ class TestERA5Loader:
 
         monkeypatch.setattr(loader, "download_data", fake_download)
 
-        ds = loader.extract_hurricane_patches(track_df, patch_size=10, variables=["u10"])
+        ds = loader.extract_hurricane_patches(
+            track_df, patch_size=10, variables=["u10"]
+        )
 
         assert len(calls) == 2
         # Ensure we requested both sides of the dateline
@@ -737,7 +769,9 @@ class TestERA5Loader:
                 )
                 for var in variables or ["u10"]
             }
-            ds = xr.Dataset(data_vars, coords={"time": times, "latitude": [0], "longitude": [0]})
+            ds = xr.Dataset(
+                data_vars, coords={"time": times, "latitude": [0], "longitude": [0]}
+            )
             ds.to_netcdf(fname)
             return fname
 
@@ -758,5 +792,6 @@ class TestERA5Loader:
         assert calls.count(("u10", "v10")) == 1
         assert calls.count(("u10",)) == 1
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

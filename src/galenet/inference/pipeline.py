@@ -259,7 +259,10 @@ class GaleNetPipeline:
         preds["timestamp"] = future_times
         preds["storm_id"] = last["storm_id"]
         preds["name"] = last.get("name", "")
-        preds["lead_time"] = [track["lead_time"].iloc[-1] + step * i for i in range(1, num_steps + 1)]
+        preds["lead_time"] = [
+            track["lead_time"].iloc[-1] + step * i
+            for i in range(1, num_steps + 1)
+        ]
 
         full_track = pd.concat([track, preds], ignore_index=True)
 

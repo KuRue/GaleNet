@@ -1,3 +1,4 @@
+# isort: skip_file
 import sys
 from pathlib import Path
 
@@ -8,9 +9,10 @@ import pytest
 sys.path.append(str(Path(__file__).parent.parent / "src" / "galenet"))
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
-from evaluation.baselines import evaluate_baselines, run_baselines
-from evaluation.metrics import compute_metrics
-import evaluate_baselines as eval_cli
+import evaluate_baselines as eval_cli  # noqa: E402
+from evaluation.baselines import evaluate_baselines  # noqa: E402
+from evaluation.baselines import run_baselines  # noqa: E402
+from evaluation.metrics import compute_metrics  # noqa: E402
 
 
 def test_baseline_predictions():
@@ -197,7 +199,7 @@ def test_evaluate_baselines_with_model():
         expected_track_model, rel=1e-4
     )
     assert summary["model"]["intensity_mae"] == pytest.approx(
-    expected_intensity_model, rel=1e-4
+        expected_intensity_model, rel=1e-4
     )
 
 
@@ -430,4 +432,3 @@ def test_cli_evaluate_baselines_multi_model(tmp_path, monkeypatch):
         assert df_summary.loc[idx, "intensity_mae"] == pytest.approx(
             expected_summary.loc[idx, "intensity_mae"], rel=1e-4
         )
-

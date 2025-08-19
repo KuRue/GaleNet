@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 import xarray as xr
 
 # Ensure src is on path

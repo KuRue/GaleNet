@@ -76,15 +76,16 @@ python scripts/train_model.py model.name=graphcast \
 
 This command fine‑tunes GraphCast while training GaleNet's forecasting head.
 
-## Pangu-Weather Model
+## Pangu-Weather Model (Inference Only)
 
-The Pangu-Weather backbone offers an alternative physics-informed encoder. It
-consumes 3D ERA5 cubes containing wind, temperature, humidity, and geopotential
-fields on 13 pressure levels along with surface variables.
+The Pangu-Weather backbone provides an alternative physics-informed encoder for
+inference. GaleNet uses the pre-trained Pangu weights without fine-tuning; the
+backbone runs in inference mode only.
 
 ### Required ERA5 Variables
 
-Ensure the data pipeline requests the following fields:
+Ensure the data pipeline requests the following fields when running Pangu for
+inference:
 
 ```yaml
 data:
@@ -102,15 +103,5 @@ data:
     pressure_levels: [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100, 70, 50]
 ```
 
-### Example: Pangu-backed Training
-
-Run a Pangu-supported training session with:
-
-```bash
-python scripts/train_model.py model.name=pangu \
-    model.pangu.checkpoint_path=/path/to/pangu_weights.npz \
-    model.pangu.freeze_backbone=false \
-    training.include_era5=true training.epochs=5
-```
-
-This command fine‑tunes Pangu while training GaleNet's forecasting head.
+These variables must be available when invoking the Pangu backbone for
+inference.

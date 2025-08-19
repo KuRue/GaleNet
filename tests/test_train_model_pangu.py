@@ -1,6 +1,6 @@
+import importlib.util
 import sys
 from pathlib import Path
-import importlib.util
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,6 @@ from omegaconf import DictConfig
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 import galenet.models.pangu as pangu  # noqa: E402
-
 
 torch = pytest.importorskip("torch")
 
@@ -49,7 +48,6 @@ def test_train_model_runs_one_epoch(monkeypatch, tmp_path):
     monkeypatch.setattr(pangu, "_PANGU_AVAILABLE", True)
     monkeypatch.setattr(pangu, "dm_pangu", DummyPanguWeather())
     monkeypatch.setattr(train_model, "HurricaneDataPipeline", DummyPipeline)
-
 
     def dummy_build_model(cfg):
         class DummyModule(torch.nn.Module):

@@ -6,8 +6,8 @@ GaleNet combines classic hurricane science with modern deep learning.
 
 - **Data Pipeline** – normalizes HURDAT2/IBTrACS tracks and optionally merges
   ERA5 reanalysis patches.
-- **Neural Network Core** – supports GraphCast and Pangu‑Weather backbones for
-  physics‑informed feature extraction.
+- **Neural Network Core** – supports GraphCast and a Pangu‑Weather backbone for
+  physics‑informed feature extraction. Pangu operates in inference mode only.
 - **Inference Pipeline** – the `GaleNetPipeline` class wraps preprocessing and
   model execution, incorporating GraphCast outputs to guide track forecasts.
 
@@ -16,8 +16,9 @@ GaleNet combines classic hurricane science with modern deep learning.
 The backbone is selected via `model.name` in the Hydra configuration:
 
 - `graphcast` uses DeepMind's GraphCast weights and expects 0.25° ERA5 patches.
-- `pangu` enables Microsoft's Pangu‑Weather transformer, which consumes 3D ERA5
-  cubes with wind, temperature, humidity, and geopotential fields.
+- `pangu` enables Microsoft's Pangu‑Weather transformer for inference. It
+  consumes 3D ERA5 cubes with wind, temperature, humidity, and geopotential
+  fields. The pretrained weights remain fixed; fine‑tuning is not supported.
 
 ## Design Principles
 

@@ -57,6 +57,7 @@ class IBTrACSLoader:
         """
         if self._dataset is None:
             self.load_data()
+        assert self._dataset is not None
 
         # Find storm by ID
         storm_idx = None
