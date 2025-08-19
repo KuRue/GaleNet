@@ -9,6 +9,8 @@ import cdsapi
 import requests
 from loguru import logger
 from tqdm import tqdm
+import hashlib
+from typing import Optional
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -29,10 +31,10 @@ def download_file(url: str, dest_path: Path, desc: str = "Downloading") -> bool:
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        total_size = int(response.headers.get('content-length', 0))
+        total_size = int(response.headers.get("content-length", 0))
 
-        with open(dest_path, 'wb') as f:
-            with tqdm(total=total_size, unit='B', unit_scale=True, desc=desc) as pbar:
+        with open(dest_path, "wb") as f:
+            with tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) as pbar:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
                     pbar.update(len(chunk))
@@ -41,6 +43,31 @@ def download_file(url: str, dest_path: Path, desc: str = "Downloading") -> bool:
     except Exception as e:
         logger.error(f"Failed to download {url}: {e}")
         return False
+
+
+def validate_file(path: Path, *, expected_size: Optional[int] = None, expected_sha1: Optional[str] = None) -> bool:
+    """Validate a downloaded file using size and/or SHA1 checksum."""
+
+    if expected_size is not None:
+        actual_size = path.stat().st_size
+        if actual_size != expected_size:
+            logger.error(
+                f"Size mismatch for {path.name}: expected {expected_size}, got {actual_size}"
+            )
+            return False
+
+    if expected_sha1 is not None:
+        sha1 = hashlib.sha1()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha1.update(chunk)
+        if sha1.hexdigest() != expected_sha1:
+            logger.error(
+                f"Checksum mismatch for {path.name}: expected {expected_sha1}, got {sha1.hexdigest()}"
+            )
+            return False
+
+    return True
 
 
 def setup_directories(base_dir: Path) -> dict:
@@ -212,7 +239,7 @@ def download_era5_sample(data_dir: Path) -> bool:
 
 
 def download_model_weights(data_dir: Path) -> bool:
-    """Download pre-trained model weights.
+    """Download official Pangu-Weather checkpoints.
 
     Args:
         data_dir: Directory to save models
@@ -220,43 +247,46 @@ def download_model_weights(data_dir: Path) -> bool:
     Returns:
         Success status
     """
-    logger.info("Downloading model weights...")
 
-    models_dir = data_dir / 'models'
+    logger.info("Downloading Pangu-Weather checkpoints...")
 
-    # Note: These are placeholder URLs - actual model weights would need to be hosted
-    model_urls = {
-        'graphcast': {
-            'url': 'https://example.com/graphcast_hurricane_v1.pt',  # Placeholder
-            'file': 'graphcast_hurricane_v1.pt',
-            'size': '2.3GB'
+    models_dir = data_dir / "models"
+    models_dir.mkdir(exist_ok=True)
+
+    pangu_files = {
+        "pangu_weather_24.onnx": {
+            "url": "https://get.ecmwf.int/repository/test-data/ai-models/pangu-weather/pangu_weather_24.onnx",
+            "sha1": "3151e0a2a0f9de74a3825045a262afacc4b5bc78",
+            "size": 1181711187,
         },
-        'pangu': {
-            'url': 'https://example.com/pangu_weather_v1.pt',  # Placeholder
-            'file': 'pangu_weather_v1.pt',
-            'size': '1.8GB'
-        }
+        "pangu_weather_6.onnx": {
+            "url": "https://get.ecmwf.int/repository/test-data/ai-models/pangu-weather/pangu_weather_6.onnx",
+            "sha1": "2da47d30bcb80ba6ca963f9bd5ac71839f7839b5",
+            "size": 1181711187,
+        },
     }
 
-    logger.warning("""
-Model weights are not yet publicly available.
-Please check the following resources:
-- GraphCast: https://github.com/deepmind/graphcast
-- Pangu-Weather: https://github.com/198808xc/Pangu-Weather
+    success = True
+    for filename, info in pangu_files.items():
+        dest = models_dir / filename
+        if dest.exists():
+            logger.info(f"{filename} already exists, verifying...")
+            if validate_file(dest, expected_size=info["size"], expected_sha1=info["sha1"]):
+                continue
+            logger.warning(f"{filename} failed validation, re-downloading")
+            dest.unlink()
 
-Once you have the model weights, place them in:
-{}
-""".format(models_dir))
+        if download_file(info["url"], dest, desc=filename):
+            if validate_file(dest, expected_size=info["size"], expected_sha1=info["sha1"]):
+                logger.success(f"Downloaded {filename}")
+            else:
+                logger.error(f"{filename} failed validation after download")
+                dest.unlink(missing_ok=True)
+                success = False
+        else:
+            success = False
 
-    # Create placeholder files for testing
-    for model_name, info in model_urls.items():
-        model_path = models_dir / info['file']
-        if not model_path.exists():
-            # Create empty placeholder
-            model_path.touch()
-            logger.info(f"Created placeholder for {model_name} at {model_path}")
-
-    return True
+    return success
 
 
 def verify_setup(data_dir: Path) -> bool:
@@ -277,8 +307,8 @@ def verify_setup(data_dir: Path) -> bool:
 
     optional_files = {
         'ERA5 Sample': data_dir / 'era5' / 'era5_sample_katrina_2005.nc',
-        'GraphCast Model': data_dir / 'models' / 'graphcast_hurricane_v1.pt',
-        'Pangu Model': data_dir / 'models' / 'pangu_weather_v1.pt',
+        'Pangu Model 24h': data_dir / 'models' / 'pangu_weather_24.onnx',
+        'Pangu Model 6h': data_dir / 'models' / 'pangu_weather_6.onnx',
     }
 
     all_good = True
