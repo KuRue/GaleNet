@@ -16,11 +16,67 @@ from galenet.training import HurricaneDataset, Trainer, create_dataloader
 log = logging.getLogger(__name__)
 
 
+def build_model(cfg: DictConfig) -> torch.nn.Module:
+    """Instantiate a model based on ``cfg.model.name``.
+
+    The helper returns wrappers around GraphCast or Pangu models when requested.
+    For unknown model names a simple linear baseline is returned.
+    """
+
+    name = cfg.model.get("name", "").lower()
+    if name == "graphcast":
+        from galenet.models import GraphCastModel
+
+        class _GraphCastModule(torch.nn.Module):
+            def __init__(self, checkpoint: str) -> None:
+                super().__init__()
+                self.inner = GraphCastModel(checkpoint)
+                # Dummy parameter so optimizers have something to work with
+                self.dummy = torch.nn.Parameter(torch.zeros(1))
+
+            def forward(
+                self, _tracks: torch.Tensor, era5: torch.Tensor
+            ) -> torch.Tensor:  # pragma: no cover - heavy model
+                import numpy as np
+
+                out = self.inner.infer(era5.detach().cpu().numpy())
+                return torch.from_numpy(np.asarray(out, dtype=np.float32))
+
+        ckpt = cfg.model.graphcast.get("checkpoint_path", "")
+        return _GraphCastModule(ckpt)
+
+    if name == "pangu":
+        from galenet.models import PanguModel
+
+        class _PanguModule(torch.nn.Module):
+            def __init__(self, checkpoint: str) -> None:
+                super().__init__()
+                self.inner = PanguModel(checkpoint)
+                self.dummy = torch.nn.Parameter(torch.zeros(1))
+
+            def forward(
+                self, _tracks: torch.Tensor, era5: torch.Tensor
+            ) -> torch.Tensor:  # pragma: no cover - heavy model
+                import numpy as np
+
+                out = self.inner.infer(era5.detach().cpu().numpy())
+                return torch.from_numpy(np.asarray(out, dtype=np.float32))
+
+        ckpt = cfg.model.pangu.get("checkpoint_path", "")
+        return _PanguModule(ckpt)
+
+    # Fallback simple baseline
+    return torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4))
+
+
 @hydra.main(version_base=None, config_path="../configs", config_name="default_config")
 def main(cfg: DictConfig) -> None:
     """Train a simple model using configuration from Hydra."""
 
     logging.basicConfig(level=logging.INFO)
+
+    model_name = cfg.model.get("name", "").lower()
+    needs_era5 = model_name in {"graphcast", "pangu"}
 
     # Data -----------------------------------------------------------------
     storms = cfg.training.get("storms", ["AL012011"])
@@ -30,7 +86,7 @@ def main(cfg: DictConfig) -> None:
         storms,
         sequence_window=cfg.training.get("sequence_window", 1),
         forecast_window=cfg.training.get("forecast_window", 1),
-        include_era5=cfg.training.get("include_era5", False),
+        include_era5=needs_era5 or cfg.training.get("include_era5", False),
     )
     loader = create_dataloader(
         dataset,
@@ -46,7 +102,7 @@ def main(cfg: DictConfig) -> None:
             val_storms,
             sequence_window=cfg.training.get("sequence_window", 1),
             forecast_window=cfg.training.get("forecast_window", 1),
-            include_era5=cfg.training.get("include_era5", False),
+            include_era5=needs_era5 or cfg.training.get("include_era5", False),
         )
         val_loader = create_dataloader(
             val_dataset,
@@ -55,7 +111,7 @@ def main(cfg: DictConfig) -> None:
         )
 
     # Model/optimizer ------------------------------------------------------
-    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4))
+    model = build_model(cfg)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.training.learning_rate)
 
     # Checkpoint directory
@@ -87,7 +143,11 @@ def main(cfg: DictConfig) -> None:
         ),
         1,
     ):
-        log.info("epoch %d %s", epoch, " ".join(f"{k}={v:.6f}" for k, v in metrics.items()))
+        log.info(
+            "epoch %d %s",
+            epoch,
+            " ".join(f"{k}={v:.6f}" for k, v in metrics.items()),
+        )
         trainer.save_checkpoint(ckpt_dir / f"epoch_{epoch}.pt", epoch=epoch)
         if patience is not None:
             monitored = metrics.get("val_loss", metrics.get("train_loss", float("inf")))
@@ -103,3 +163,4 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     main()
+
