@@ -185,14 +185,17 @@ def test_graphcast_pipeline_environment_output(monkeypatch, tmp_path, sample_tra
 
     import galenet.models.graphcast as gm
 
-    class DummyGraphCastModel:
-        def __init__(self, *args, **kwargs):
-            pass
+    class DummyModel:
+        def __call__(self, x: np.ndarray) -> np.ndarray:
+            return x + 1.0
 
-        def infer(self, climate):
-            return climate + 1.0
+    class DummyGraphCastModule:
+        @staticmethod
+        def load_checkpoint(path):  # type: ignore[override]
+            return DummyModel()
 
-    monkeypatch.setattr(gm, "GraphCastModel", DummyGraphCastModel)
+    monkeypatch.setattr(gm, "dm_graphcast", DummyGraphCastModule)
+    monkeypatch.setattr(gm, "_GRAPHCAST_AVAILABLE", True)
 
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
 
