@@ -49,7 +49,7 @@ data:
 # Model configuration
 model:
   # Model selection
-  name: "graphcast"  # Options: graphcast (implemented); pangu, hurricane_cnn, ensemble planned
+  name: "graphcast"  # Options: graphcast, pangu (implemented); hurricane_cnn, ensemble planned
   
   # GraphCast settings
   graphcast:
