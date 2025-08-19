@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 import sys
 
 import numpy as np
@@ -23,7 +23,8 @@ import pandas as pd
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from galenet import GaleNetPipeline, HurricaneDataPipeline
-from galenet.evaluation.baselines import evaluate_baselines
+from galenet.evaluation.baselines import run_baselines
+from galenet.evaluation.metrics import compute_metrics
 
 
 def _fetch_tracks(
@@ -71,10 +72,22 @@ def main() -> None:
         help="Name to use for reporting model metrics",
     )
     parser.add_argument(
+        "--model",
+        action="append",
+        default=[],
+        help="Model specification as NAME=CONFIG. Repeat for multiple models",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=None,
         help="Optional path to write summary (CSV or JSON)",
+    )
+    parser.add_argument(
+        "--details",
+        type=Path,
+        default=None,
+        help="Optional path to write per-storm metrics (CSV or JSON)",
     )
     parser.add_argument(
         "--no-model",
@@ -90,42 +103,87 @@ def main() -> None:
             str(args.model_config) if args.model_config else None
         )
         storms_with_ids = _fetch_tracks(data_pipeline, args.storm_ids)
-        tracks: Sequence[np.ndarray] = [t for _, t in storms_with_ids]
 
-        model_forecasts = None
-        if not args.no_model:
-            pipeline = GaleNetPipeline(
-                str(args.model_config) if args.model_config else None
+        models: List[Tuple[str, GaleNetPipeline]] = []
+        if args.model:
+            for spec in args.model:
+                if "=" not in spec:
+                    raise ValueError(f"Invalid model specification: {spec}")
+                name, cfg = spec.split("=", 1)
+                models.append((name, GaleNetPipeline(cfg if cfg else None)))
+        elif not args.no_model:
+            models.append(
+                (
+                    args.model_name,
+                    GaleNetPipeline(
+                        str(args.model_config) if args.model_config else None
+                    ),
+                )
             )
-            model_forecasts = []
-            for storm_id, track in storms_with_ids:
-                logging.info("Running model for storm %s", storm_id)
-                history = track[: args.history]
-                df_hist = pd.DataFrame(
-                    history, columns=["latitude", "longitude", "max_wind"]
-                )
-                preds = pipeline.model.predict(df_hist, args.forecast, 1)
-                model_forecasts.append(
-                    preds[["latitude", "longitude", "max_wind"]].to_numpy()
-                )
 
-        results = evaluate_baselines(
-            tracks,
-            args.history,
-            args.forecast,
-            model_forecasts=model_forecasts,
-            model_name=args.model_name,
-        )
+        records: List[Dict[str, float]] = []
+        for storm_id, track in storms_with_ids:
+            history = track[: args.history]
+            truth = track[args.history : args.history + args.forecast]
+            forecasts = run_baselines(history, args.forecast)
+            for name, pred in forecasts.items():
+                results = compute_metrics(
+                    pred[:, :2],
+                    truth[:, :2],
+                    pred[:, 2],
+                    truth[:, 2],
+                )
+                rec: Dict[str, float] = {"storm": storm_id, "forecast": name}
+                rec.update(results)
+                records.append(rec)
 
-        df = pd.DataFrame(results).T
-        print(df.to_string(float_format=lambda x: f"{x:.3f}"))
+            for model_name, pipeline in models:
+                try:
+                    df_hist = pd.DataFrame(
+                        history, columns=["latitude", "longitude", "max_wind"]
+                    )
+                    preds = pipeline.model.predict(df_hist, args.forecast, 1)
+                    pred = preds[["latitude", "longitude", "max_wind"]].to_numpy()
+                except Exception as exc:
+                    logging.error(
+                        "Model %s failed on storm %s: %s", model_name, storm_id, exc
+                    )
+                    pred = np.full((args.forecast, 3), np.nan)
+
+                results = compute_metrics(
+                    pred[:, :2],
+                    truth[:, :2],
+                    pred[:, 2],
+                    truth[:, 2],
+                )
+                rec = {"storm": storm_id, "forecast": model_name}
+                rec.update(results)
+                records.append(rec)
+
+        per_storm_df = pd.DataFrame.from_records(records).set_index([
+            "storm",
+            "forecast",
+        ])
+        summary_df = per_storm_df.groupby("forecast").mean()
+
+        print("Per-storm metrics:")
+        print(per_storm_df.to_string(float_format=lambda x: f"{x:.3f}"))
+        print("\nSummary:")
+        print(summary_df.to_string(float_format=lambda x: f"{x:.3f}"))
+
+        if args.details is not None:
+            if args.details.suffix == ".json":
+                per_storm_df.to_json(args.details, orient="index", indent=2)
+            else:
+                per_storm_df.to_csv(args.details)
+
         if args.output is not None:
             if args.output.suffix == ".json":
-                df.to_json(args.output, orient="index", indent=2)
+                summary_df.to_json(args.output, orient="index", indent=2)
             else:
-                df.to_csv(args.output)
+                summary_df.to_csv(args.output)
 
-        if df.isna().any().any():
+        if per_storm_df.isna().any().any() or summary_df.isna().any().any():
             raise RuntimeError("NaN encountered in evaluation metrics")
 
     except Exception as exc:  # pragma: no cover - CLI failure path
