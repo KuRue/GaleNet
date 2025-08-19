@@ -9,11 +9,10 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Baseline training and evaluation scripts with metrics.
 - Installation, data pipeline, architecture, training, and API documentation.
 - Tutorial notebooks demonstrating basic workflows.
-- Placeholder GraphCast hooks for future integration.
+- Full GraphCast integration with accompanying training and pipeline docs.
 
 ## Remaining Milestones
-- Replace placeholder GraphCast hooks with full integration into the data pipeline.
-- Extend training loop for GraphCast/Pangu-based models.
+- Extend training loop for Pangu-based models.
 - Publish comprehensive evaluation guide and usage examples.
 - **Upcoming**
    - Expand end-to-end data pipeline documentation and schema coverage *(target: 2025-10)*
@@ -23,4 +22,4 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 2. **Phase 2 – Model Development**: integrate advanced forecast models and train baseline predictors.
 3. **Phase 3 – Evaluation & Deployment**: benchmark models, refine APIs, and prepare for public release.
 
-_Last updated: 2025-08-17_
+_Last updated: 2025-08-19_

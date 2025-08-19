@@ -7,15 +7,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-GaleNet explores AI‑based techniques for tropical cyclone forecasting. The project currently focuses on data pipelines, baseline training/evaluation scripts, and placeholder GraphCast hooks while full integration with weather models such as GraphCast and Pangu‑Weather remains under active development.
+GaleNet explores AI‑based techniques for tropical cyclone forecasting. The project currently focuses on data pipelines, baseline training/evaluation scripts, and full GraphCast integration while support for additional weather models such as Pangu‑Weather remains under active development.
 
 ## 🌟 Key Features
 
 - **Hurricane Data Pipeline** – loaders for HURDAT2, IBTrACS, and optional ERA5 patches.
 - **Baseline Training & Evaluation Scripts** – minimal examples for model experimentation.
-- **GraphCast Placeholder** – stub weights and hooks to prototype future GraphCast integration.
+- **Full GraphCast Support** – integrated training and data pipelines leveraging GraphCast; see the [training guide](docs/training.md) and [pipeline docs](docs/data_pipeline.md).
 - **Hydra Configuration** – reproducible experiments managed through YAML configs.
-- **Modular Design** – architecture prepared for future GraphCast and Pangu‑Weather integration.
+- **Modular Design** – architecture prepared for future models like Pangu‑Weather.
 
 ## 🗺️ Roadmap
 
@@ -23,7 +23,10 @@ Phase 1 focuses on establishing the foundation for future work:
 
 - Data loaders for HURDAT2/IBTrACS and optional ERA5 patches
 - Baseline training and evaluation scripts
-- Placeholder GraphCast hooks
+
+### ✅ Completed
+
+- Full GraphCast integration with training and pipeline documentation
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the full list of milestones and progress updates.
 
@@ -48,7 +51,7 @@ conda activate galenet
 pip install -e .
 ```
 
-4. Download sample data and placeholder model weights:
+4. Download sample data and model weights:
 ```bash
 python scripts/setup_data.py --download-era5 --download-models
 ```
@@ -152,7 +155,7 @@ docker run --gpus all -p 8000:8000 galenet:latest
 - [x] Project structure and environment setup
 - [x] Data pipeline with HURDAT2/IBTrACS loaders
 - [x] Baseline training and evaluation scripts
-- [ ] Replace placeholder GraphCast hooks with full integration and extended docs
+- [x] Full GraphCast integration with extended documentation
 
 ### Phase 2: Model Development 📃 **Planned**
 - [ ] CNN‑Transformer models
