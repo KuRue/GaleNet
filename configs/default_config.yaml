@@ -34,14 +34,7 @@ data:
   era5:
     api_url: "${oc.env:CDSAPI_URL,https://cds.climate.copernicus.eu/api/v2}"
     api_key: "${oc.env:CDSAPI_KEY,}"
-    variables:
-      - "10m_u_component_of_wind"
-      - "10m_v_component_of_wind"
-      - "mean_sea_level_pressure"
-      - "2m_temperature"
-      - "sea_surface_temperature"
-      - "total_precipitation"
-      - "convective_available_potential_energy"
+    variables: ${model.graphcast.variables}  # Required ERA5 variables for GraphCast
     pressure_levels: [1000, 925, 850, 700, 500, 300, 200]
     patch_size: 25.0  # degrees
     
@@ -60,11 +53,26 @@ model:
   
   # GraphCast settings
   graphcast:
-    checkpoint_path: "${data.root_dir}/models/graphcast/params.npz"
-    resolution: 0.25  # degrees
-    num_layers: 16
-    hidden_dim: 512
-    num_heads: 8
+    checkpoint_path: "gs://dm_graphcast/graphcast/params/GraphCast - ERA5 1979-2017 - resolution 0.25 - pressure levels 37 - mesh 2to6 - precipitation input and output.npz"  # Official GraphCast weights
+    resolution: 0.25  # Degrees per grid cell for official GraphCast
+    variables:  # Required variables for GraphCast inputs
+      - "2m_temperature"  # Surface air temperature at 2 m
+      - "mean_sea_level_pressure"  # Mean sea-level pressure
+      - "10m_u_component_of_wind"  # Surface zonal wind
+      - "10m_v_component_of_wind"  # Surface meridional wind
+      - "total_precipitation_6hr"  # 6-hour accumulated precipitation
+      - "temperature"  # Atmospheric temperature profile
+      - "geopotential"  # Geopotential height
+      - "u_component_of_wind"  # Zonal wind component
+      - "v_component_of_wind"  # Meridional wind component
+      - "vertical_velocity"  # Pressure vertical velocity
+      - "specific_humidity"  # Atmospheric moisture
+      - "toa_incident_solar_radiation"  # Top-of-atmosphere solar forcing
+      - "geopotential_at_surface"  # Static surface geopotential
+      - "land_sea_mask"  # Static land/sea indicator
+    num_layers: 16  # Optional: message-passing layers; official GraphCast uses 16
+    hidden_dim: 512  # Optional: latent feature size; official GraphCast uses 512
+    num_heads: 8  # Optional: attention heads; adjust for experiments
     
   # Pangu-Weather settings
   # TODO: Implement Pangu-Weather model support
