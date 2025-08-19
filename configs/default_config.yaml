@@ -73,14 +73,24 @@ model:
     num_layers: 16  # Optional: message-passing layers; official GraphCast uses 16
     hidden_dim: 512  # Optional: latent feature size; official GraphCast uses 512
     num_heads: 8  # Optional: attention heads; adjust for experiments
-    
+
   # Pangu-Weather settings
-  # TODO: Implement Pangu-Weather model support
   pangu:
-    checkpoint_path: "${data.root_dir}/models/pangu/weights.pt"
-    patch_size: 4
-    embed_dim: 192
-    num_heads: 16
+    checkpoint_path: "${data.root_dir}/models/pangu/pangu_weather_v1.pt"  # Path to pre-trained Pangu weights
+    resolution: 0.25  # Degrees per grid cell for official Pangu release
+    variables:  # Required variables for Pangu-Weather inputs
+      - "geopotential"  # Geopotential height
+      - "temperature"  # Atmospheric temperature
+      - "specific_humidity"  # Atmospheric moisture
+      - "u_component_of_wind"  # Zonal wind component
+      - "v_component_of_wind"  # Meridional wind component
+      - "2m_temperature"  # Surface air temperature at 2 m
+      - "10m_u_component_of_wind"  # Surface zonal wind
+      - "10m_v_component_of_wind"  # Surface meridional wind
+      - "mean_sea_level_pressure"  # Mean sea-level pressure
+    patch_size: 4  # Degrees per patch for the Transformer input
+    embed_dim: 192  # Latent feature size for Pangu encoder
+    num_heads: 16  # Attention heads in each Transformer block
     
   # Hurricane CNN-Transformer
   # TODO: Implement Hurricane CNN-Transformer model
