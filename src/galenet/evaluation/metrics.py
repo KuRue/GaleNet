@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from math import radians, cos
+from math import cos, radians
 from pathlib import Path
-from typing import Dict, Iterable, Sequence
+from typing import Callable, Dict, Iterable, Mapping, Sequence
 
 import numpy as np
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 # Load default metrics from configuration without initializing Hydra
 _CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "default_config.yaml"
@@ -29,7 +29,9 @@ def _haversine(
     return EARTH_RADIUS_KM * c
 
 
-def track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
+def track_error(
+    pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]
+) -> float:
     """Mean great-circle distance between predicted and true track in km."""
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
@@ -39,7 +41,9 @@ def track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]
     return float(np.mean(distances))
 
 
-def _to_xy(lat: float | np.ndarray, lon: float | np.ndarray, ref_lat: float) -> np.ndarray:
+def _to_xy(
+    lat: float | np.ndarray, lon: float | np.ndarray, ref_lat: float
+) -> np.ndarray:
     """Convert lat/lon to local Cartesian x/y in km using equirectangular projection."""
     lat_rad = np.radians(lat)
     lon_rad = np.radians(lon)
@@ -72,7 +76,9 @@ def _along_cross_components(
     return np.asarray(along_list), np.asarray(cross_list)
 
 
-def along_track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
+def along_track_error(
+    pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]
+) -> float:
     """Mean absolute error component along the true track direction in km."""
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
@@ -80,7 +86,9 @@ def along_track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[
     return float(np.mean(np.abs(along)))
 
 
-def cross_track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
+def cross_track_error(
+    pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]
+) -> float:
     """Mean absolute error component perpendicular to true track in km."""
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
@@ -95,9 +103,7 @@ def intensity_mae(pred: Sequence[float], truth: Sequence[float]) -> float:
     return float(np.mean(np.abs(pred_arr - truth_arr)))
 
 
-def rapid_intensification_skill(
-    pred: Sequence[float], truth: Sequence[float]
-) -> float:
+def rapid_intensification_skill(pred: Sequence[float], truth: Sequence[float]) -> float:
     """F1 skill score for predicting rapid intensification events.
 
     A rapid intensification (RI) event is defined as an increase in
@@ -137,7 +143,7 @@ def rapid_intensification_skill(
     return float(2 * precision * recall / (precision + recall))
 
 
-METRIC_FUNCTIONS = {
+METRIC_FUNCTIONS: Mapping[str, Callable[..., float]] = {
     "track_error": track_error,
     "along_track_error": along_track_error,
     "cross_track_error": cross_track_error,

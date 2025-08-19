@@ -49,7 +49,7 @@ class HURDAT2Loader:
         logger.info(f"Loading HURDAT2 data from {self.data_path}")
 
         records = []
-        current_storm = None
+        current_storm: Optional[Dict[str, object]] = None
 
         with open(self.data_path, "r") as f:
             for line in f:
@@ -70,6 +70,8 @@ class HURDAT2Loader:
 
                 # Data line
                 else:
+                    if current_storm is None:
+                        continue
                     parts = [p.strip() for p in line.split(",")]
 
                     # Parse date and time
@@ -149,6 +151,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         storm_data = self._data[self._data["storm_id"] == storm_id].copy()
 
@@ -171,6 +174,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         year_data = self._data[self._data["timestamp"].dt.year == year]
         return sorted(year_data["storm_id"].unique())
@@ -186,6 +190,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         name_upper = name.upper()
         matches = self._data[self._data["name"] == name_upper]
@@ -199,6 +204,7 @@ class HURDAT2Loader:
         """
         if self._data is None:
             self.load_data()
+        assert self._data is not None
 
         storms: Dict[str, str] = {}
         for storm_id in self._data["storm_id"].unique():

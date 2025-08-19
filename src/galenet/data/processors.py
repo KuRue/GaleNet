@@ -1,14 +1,14 @@
 """Data preprocessing modules for GaleNet hurricane forecasting."""
 
+import json
 from typing import List, Optional, Tuple
 
-import json
 import numpy as np
 import pandas as pd
+import torch
 import xarray as xr
 from loguru import logger
 from sklearn.preprocessing import StandardScaler
-import torch
 
 
 class HurricanePreprocessor:
@@ -22,9 +22,7 @@ class HurricanePreprocessor:
         self.fitted = False
 
     def normalize_track_data(
-        self,
-        track_df: pd.DataFrame,
-        fit: bool = True
+        self, track_df: pd.DataFrame, fit: bool = True
     ) -> pd.DataFrame:
         """Normalize hurricane track data.
 
@@ -39,7 +37,7 @@ class HurricanePreprocessor:
         normalized_df = track_df.copy()
 
         # Normalize positions (lat/lon)
-        position_cols = ['latitude', 'longitude']
+        position_cols = ["latitude", "longitude"]
         if fit:
             # scikit-learn's StandardScaler uses population statistics (ddof=0)
             # which results in the sample standard deviation being greater than 1
@@ -58,10 +56,12 @@ class HurricanePreprocessor:
             normalized_df[position_cols] = scaled * factor
 
         # Normalize intensity (wind/pressure)
-        intensity_cols = ['max_wind', 'min_pressure']
+        intensity_cols = ["max_wind", "min_pressure"]
         if intensity_cols[0] in normalized_df.columns:
             if fit:
-                scaled = self.intensity_scaler.fit_transform(normalized_df[intensity_cols])
+                scaled = self.intensity_scaler.fit_transform(
+                    normalized_df[intensity_cols]
+                )
                 n = len(normalized_df[intensity_cols])
                 self._int_scale_factor = np.sqrt((n - 1) / n) if n > 1 else 1.0
                 normalized_df[intensity_cols] = scaled * self._int_scale_factor
@@ -76,9 +76,7 @@ class HurricanePreprocessor:
         return normalized_df
 
     def create_track_features(
-        self,
-        track_df: pd.DataFrame,
-        include_temporal: bool = True
+        self, track_df: pd.DataFrame, include_temporal: bool = True
     ) -> pd.DataFrame:
         """Create engineered features from track data.
 
@@ -92,42 +90,51 @@ class HurricanePreprocessor:
         features_df = track_df.copy()
 
         # Calculate velocities
-        features_df['lat_velocity'] = features_df['latitude'].diff() / 6  # 6-hour intervals
-        features_df['lon_velocity'] = features_df['longitude'].diff() / 6
-        features_df['speed'] = np.sqrt(
-            features_df['lat_velocity']**2 + features_df['lon_velocity']**2
+        features_df["lat_velocity"] = (
+            features_df["latitude"].diff() / 6
+        )  # 6-hour intervals
+        features_df["lon_velocity"] = features_df["longitude"].diff() / 6
+        features_df["speed"] = np.sqrt(
+            features_df["lat_velocity"] ** 2 + features_df["lon_velocity"] ** 2
         )
 
         # Calculate acceleration
-        features_df['lat_acceleration'] = features_df['lat_velocity'].diff()
-        features_df['lon_acceleration'] = features_df['lon_velocity'].diff()
+        features_df["lat_acceleration"] = features_df["lat_velocity"].diff()
+        features_df["lon_acceleration"] = features_df["lon_velocity"].diff()
 
         # Intensity changes
-        if 'max_wind' in features_df.columns:
-            features_df['wind_change'] = features_df['max_wind'].diff()
-            features_df['pressure_change'] = features_df['min_pressure'].diff()
+        if "max_wind" in features_df.columns:
+            features_df["wind_change"] = features_df["max_wind"].diff()
+            features_df["pressure_change"] = features_df["min_pressure"].diff()
 
             # Rapid intensification indicator
-            features_df['rapid_intensification'] = (
-                features_df['wind_change'] >= 30  # 30 kt in 24 hours
+            features_df["rapid_intensification"] = (
+                features_df["wind_change"] >= 30  # 30 kt in 24 hours
             ).astype(float)
 
         # Direction of motion
-        features_df['heading'] = np.arctan2(
-            features_df['lon_velocity'],
-            features_df['lat_velocity']
-        ) * 180 / np.pi
+        features_df["heading"] = (
+            np.arctan2(features_df["lon_velocity"], features_df["lat_velocity"])
+            * 180
+            / np.pi
+        )
 
         # Temporal features
-        if include_temporal and 'timestamp' in features_df.columns:
-            features_df['hour'] = pd.to_datetime(features_df['timestamp']).dt.hour
-            features_df['day_of_year'] = pd.to_datetime(features_df['timestamp']).dt.dayofyear
+        if include_temporal and "timestamp" in features_df.columns:
+            features_df["hour"] = pd.to_datetime(features_df["timestamp"]).dt.hour
+            features_df["day_of_year"] = pd.to_datetime(
+                features_df["timestamp"]
+            ).dt.dayofyear
 
             # Cyclical encoding
-            features_df['hour_sin'] = np.sin(2 * np.pi * features_df['hour'] / 24)
-            features_df['hour_cos'] = np.cos(2 * np.pi * features_df['hour'] / 24)
-            features_df['day_sin'] = np.sin(2 * np.pi * features_df['day_of_year'] / 365)
-            features_df['day_cos'] = np.cos(2 * np.pi * features_df['day_of_year'] / 365)
+            features_df["hour_sin"] = np.sin(2 * np.pi * features_df["hour"] / 24)
+            features_df["hour_cos"] = np.cos(2 * np.pi * features_df["hour"] / 24)
+            features_df["day_sin"] = np.sin(
+                2 * np.pi * features_df["day_of_year"] / 365
+            )
+            features_df["day_cos"] = np.cos(
+                2 * np.pi * features_df["day_of_year"] / 365
+            )
 
         # Fill NaN values from diff operations
         features_df = features_df.fillna(0)
@@ -139,7 +146,7 @@ class HurricanePreprocessor:
         features_df: pd.DataFrame,
         sequence_length: int = 8,
         forecast_length: int = 20,
-        feature_cols: Optional[List[str]] = None
+        feature_cols: Optional[List[str]] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Prepare sequences for model training.
 
@@ -155,9 +162,17 @@ class HurricanePreprocessor:
         if feature_cols is None:
             # Default feature columns
             feature_cols = [
-                'latitude', 'longitude', 'max_wind', 'min_pressure',
-                'lat_velocity', 'lon_velocity', 'speed',
-                'hour_sin', 'hour_cos', 'day_sin', 'day_cos'
+                "latitude",
+                "longitude",
+                "max_wind",
+                "min_pressure",
+                "lat_velocity",
+                "lon_velocity",
+                "speed",
+                "hour_sin",
+                "hour_cos",
+                "day_sin",
+                "day_cos",
             ]
             # Filter to available columns
             feature_cols = [col for col in feature_cols if col in features_df.columns]
@@ -180,8 +195,8 @@ class HurricanePreprocessor:
         target_sequences = []
 
         for i in range(num_sequences):
-            input_seq = data[i:i + sequence_length]
-            target_seq = data[i + sequence_length:i + total_length]
+            input_seq = data[i : i + sequence_length]
+            target_seq = data[i + sequence_length : i + total_length]
 
             input_sequences.append(input_seq)
             target_sequences.append(target_seq)
@@ -202,7 +217,7 @@ class ERA5Preprocessor:
         center_lat: float,
         center_lon: float,
         patch_size: float = 25.0,
-        variables: Optional[List[str]] = None
+        variables: Optional[List[str]] = None,
     ) -> xr.Dataset:
         """Extract spatial patches around hurricane center.
 
@@ -232,19 +247,17 @@ class ERA5Preprocessor:
         if lon_min < lon_max:
             patch = era5_data.sel(
                 latitude=slice(lat_max, lat_min),  # ERA5 has descending lats
-                longitude=slice(lon_min, lon_max)
+                longitude=slice(lon_min, lon_max),
             )
         else:
             # Handle antimeridian crossing
             patch1 = era5_data.sel(
-                latitude=slice(lat_max, lat_min),
-                longitude=slice(lon_min, 180)
+                latitude=slice(lat_max, lat_min), longitude=slice(lon_min, 180)
             )
             patch2 = era5_data.sel(
-                latitude=slice(lat_max, lat_min),
-                longitude=slice(-180, lon_max)
+                latitude=slice(lat_max, lat_min), longitude=slice(-180, lon_max)
             )
-            patch = xr.concat([patch1, patch2], dim='longitude')
+            patch = xr.concat([patch1, patch2], dim="longitude")
 
         # Select variables if specified
         if variables:
@@ -303,10 +316,7 @@ class ERA5Preprocessor:
 
         return normalized
 
-    def compute_derived_fields(
-        self,
-        data: xr.Dataset
-    ) -> xr.Dataset:
+    def compute_derived_fields(self, data: xr.Dataset) -> xr.Dataset:
         """Compute derived meteorological fields.
 
         The routine augments raw ERA5 variables with additional diagnostics
@@ -324,65 +334,69 @@ class ERA5Preprocessor:
         enhanced = data.copy()
 
         # Wind speed and direction from u/v components
-        if 'u10' in data and 'v10' in data:
-            enhanced['wind_speed'] = np.sqrt(data['u10']**2 + data['v10']**2)
-            enhanced['wind_direction'] = np.arctan2(data['v10'], data['u10']) * 180 / np.pi
+        if "u10" in data and "v10" in data:
+            enhanced["wind_speed"] = np.sqrt(data["u10"] ** 2 + data["v10"] ** 2)
+            enhanced["wind_direction"] = (
+                np.arctan2(data["v10"], data["u10"]) * 180 / np.pi
+            )
 
         # Relative vorticity at 10m
-        if 'u10' in data and 'v10' in data:
+        if "u10" in data and "v10" in data:
             # Simple finite difference approximation
-            dvdx = data['v10'].differentiate('longitude')
-            dudy = data['u10'].differentiate('latitude')
-            enhanced['vorticity_10m'] = dvdx - dudy
+            dvdx = data["v10"].differentiate("longitude")
+            dudy = data["u10"].differentiate("latitude")
+            enhanced["vorticity_10m"] = dvdx - dudy
 
         # Convergence
-        if 'u10' in data and 'v10' in data:
-            dudx = data['u10'].differentiate('longitude')
-            dvdy = data['v10'].differentiate('latitude')
-            enhanced['convergence_10m'] = -(dudx + dvdy)
+        if "u10" in data and "v10" in data:
+            dudx = data["u10"].differentiate("longitude")
+            dvdy = data["v10"].differentiate("latitude")
+            enhanced["convergence_10m"] = -(dudx + dvdy)
 
         # Potential temperature (if temperature available)
-        if 't2m' in data and 'msl' in data:
+        if "t2m" in data and "msl" in data:
             # Simplified calculation
-            enhanced['theta'] = data['t2m'] * (1000.0 / data['msl'])**(287.0/1004.0)
+            enhanced["theta"] = data["t2m"] * (1000.0 / data["msl"]) ** (287.0 / 1004.0)
 
         # Vertical wind shear between 200 hPa and 850 hPa
-        shear_vars = ['u200', 'v200', 'u850', 'v850']
+        shear_vars = ["u200", "v200", "u850", "v850"]
         if all(var in data for var in shear_vars):
-            du = data['u200'] - data['u850']
-            dv = data['v200'] - data['v850']
-            enhanced['vertical_wind_shear_u'] = du
-            enhanced['vertical_wind_shear_v'] = dv
-            enhanced['vertical_wind_shear'] = np.sqrt(du**2 + dv**2)
+            du = data["u200"] - data["u850"]
+            dv = data["v200"] - data["v850"]
+            enhanced["vertical_wind_shear_u"] = du
+            enhanced["vertical_wind_shear_v"] = dv
+            enhanced["vertical_wind_shear"] = np.sqrt(du**2 + dv**2)
 
         # Relative humidity using 2m temperature and dew point
-        if 't2m' in data and 'd2m' in data:
-            t_c = data['t2m'] - 273.15
-            td_c = data['d2m'] - 273.15
+        if "t2m" in data and "d2m" in data:
+            t_c = data["t2m"] - 273.15
+            td_c = data["d2m"] - 273.15
             numerator = np.exp((17.625 * td_c) / (243.04 + td_c))
             denominator = np.exp((17.625 * t_c) / (243.04 + t_c))
-            enhanced['relative_humidity'] = (100.0 * numerator / denominator).clip(0, 100)
+            enhanced["relative_humidity"] = (100.0 * numerator / denominator).clip(
+                0, 100
+            )
             # Dewpoint depression: difference between temperature and dew point
-            enhanced['dewpoint_depression'] = data['t2m'] - data['d2m']
+            enhanced["dewpoint_depression"] = data["t2m"] - data["d2m"]
 
         # Specific humidity computed from dew point and pressure
-        if 'd2m' in data and 'msl' in data:
-            td_c = data['d2m'] - 273.15
+        if "d2m" in data and "msl" in data:
+            td_c = data["d2m"] - 273.15
             # Convert pressure to hPa
-            p_hpa = data['msl'] / 100.0
+            p_hpa = data["msl"] / 100.0
             e = 6.112 * np.exp((17.67 * td_c) / (td_c + 243.5))
-            enhanced['specific_humidity'] = (0.622 * e) / (p_hpa - 0.378 * e)
+            enhanced["specific_humidity"] = (0.622 * e) / (p_hpa - 0.378 * e)
 
         return enhanced
 
     def save_stats(self, path: str) -> None:
         """Persist variable statistics to disk as JSON."""
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(self.variable_stats, f)
 
     def load_stats(self, path: str) -> None:
         """Load variable statistics from a JSON file."""
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             self.variable_stats = json.load(f)
 
     def to_tensor(
@@ -422,8 +436,7 @@ class ERA5Preprocessor:
 
 
 def normalize_track_data(
-    track_df: pd.DataFrame,
-    preprocessor: Optional[HurricanePreprocessor] = None
+    track_df: pd.DataFrame, preprocessor: Optional[HurricanePreprocessor] = None
 ) -> pd.DataFrame:
     """Convenience function to normalize track data.
 
@@ -440,8 +453,7 @@ def normalize_track_data(
 
 
 def create_track_features(
-    track_df: pd.DataFrame,
-    preprocessor: Optional[HurricanePreprocessor] = None
+    track_df: pd.DataFrame, preprocessor: Optional[HurricanePreprocessor] = None
 ) -> pd.DataFrame:
     """Convenience function to create track features.
 

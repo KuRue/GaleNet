@@ -14,7 +14,6 @@ from omegaconf import OmegaConf
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 from galenet.inference.pipeline import GaleNetPipeline  # noqa: E402
 
-
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "default_config.yaml"
 
 
@@ -65,7 +64,9 @@ def test_forecast_length_matches_hours(monkeypatch, sample_track):
         def __init__(self, *args, **kwargs):
             pass
 
-        def load_hurricane_for_training(self, storm_id, source="hurdat2", include_era5=False):
+        def load_hurricane_for_training(
+            self, storm_id, source="hurdat2", include_era5=False
+        ):
             return {"track": sample_track}
 
     monkeypatch.setattr(
@@ -74,9 +75,7 @@ def test_forecast_length_matches_hours(monkeypatch, sample_track):
 
     config = OmegaConf.load(CONFIG_PATH)
     config.model.name = "hurricane_ensemble"
-    monkeypatch.setattr(
-        "galenet.inference.pipeline.get_config", lambda *a, **k: config
-    )
+    monkeypatch.setattr("galenet.inference.pipeline.get_config", lambda *a, **k: config)
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
     monkeypatch.setattr(
         pipeline.model,
@@ -102,7 +101,9 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
         def __init__(self, *args, **kwargs):
             pass
 
-        def load_hurricane_for_training(self, storm_id, source="hurdat2", include_era5=False):
+        def load_hurricane_for_training(
+            self, storm_id, source="hurdat2", include_era5=False
+        ):
             return {"track": sample_track}
 
     monkeypatch.setattr(
@@ -111,9 +112,7 @@ def test_lead_times_and_validation_warning(monkeypatch, sample_track):
 
     config = OmegaConf.load(CONFIG_PATH)
     config.model.name = "hurricane_ensemble"
-    monkeypatch.setattr(
-        "galenet.inference.pipeline.get_config", lambda *a, **k: config
-    )
+    monkeypatch.setattr("galenet.inference.pipeline.get_config", lambda *a, **k: config)
     pipeline = GaleNetPipeline(config_path=CONFIG_PATH)
     monkeypatch.setattr(
         pipeline.model,
@@ -175,7 +174,9 @@ def test_graphcast_pipeline_environment_output(monkeypatch, tmp_path, sample_tra
         def __init__(self, *args, **kwargs):
             pass
 
-        def load_hurricane_for_training(self, storm_id, source="hurdat2", include_era5=False):
+        def load_hurricane_for_training(
+            self, storm_id, source="hurdat2", include_era5=False
+        ):
             assert include_era5 is True
             return {"track": sample_track, "era5": era5}
 
@@ -203,9 +204,7 @@ def test_graphcast_pipeline_environment_output(monkeypatch, tmp_path, sample_tra
     monkeypatch.setattr(
         pipeline.preprocessor, "normalize_track_data", lambda track, fit=False: track
     )
-    monkeypatch.setattr(
-        pipeline.preprocessor, "create_track_features", lambda df: df
-    )
+    monkeypatch.setattr(pipeline.preprocessor, "create_track_features", lambda df: df)
     monkeypatch.setattr(pipeline.validator, "validate_track", lambda df: (True, []))
 
     result = pipeline.forecast_storm("AL012023", forecast_hours=12)

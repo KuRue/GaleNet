@@ -1,3 +1,4 @@
+# isort: skip_file
 import sys
 from pathlib import Path
 
@@ -6,9 +7,9 @@ import pytest
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from galenet.evaluation.metrics import (along_track_error,  # noqa: E402
-                                        compute_metrics, cross_track_error,
-                                        intensity_mae,
+from galenet.evaluation.metrics import along_track_error  # noqa: E402
+from galenet.evaluation.metrics import (compute_metrics,  # noqa: E402
+                                        cross_track_error, intensity_mae,
                                         rapid_intensification_skill,
                                         track_error)
 

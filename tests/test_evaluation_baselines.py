@@ -1,3 +1,4 @@
+# isort: skip_file
 import sys
 from pathlib import Path
 
@@ -9,8 +10,8 @@ sys.path.append(str(Path(__file__).parent.parent / "src" / "galenet"))
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
 import evaluate_baselines as eval_cli  # noqa: E402
-from evaluation.baselines import (evaluate_baselines,  # noqa: E402
-                                  run_baselines)
+from evaluation.baselines import evaluate_baselines  # noqa: E402
+from evaluation.baselines import run_baselines  # noqa: E402
 from evaluation.metrics import compute_metrics  # noqa: E402
 
 
