@@ -63,10 +63,54 @@ The script loads tracks through `HurricaneDataPipeline`, runs baseline models,
 and reports track error statistics. Additional options are documented in the
 [Evaluation Guide](evaluation.md).
 
-## GraphCast Integration Notes
+## Preparing GraphCast Inputs
 
-The pipeline includes experimental support for GraphCast variables. When a
-GraphCast checkpoint path is provided in the configuration, the pipeline
-prepares inputs at the 0.25° resolution expected by GraphCast, enabling its use
-as a feature extractor or initialization for GaleNet models.
+GraphCast operates on ERA5 fields sampled at a 0.25° grid. To supply these
+inputs through the data pipeline:
+
+1. **Select Variables** – Request the surface and pressure‑level fields used by
+   GraphCast:
+
+   ```yaml
+   data:
+     era5:
+       variables:
+         - "10m_u_component_of_wind"
+         - "10m_v_component_of_wind"
+         - "mean_sea_level_pressure"
+         - "2m_temperature"
+         - "sea_surface_temperature"
+         - "total_precipitation"
+         - "convective_available_potential_energy"
+       pressure_levels: [1000, 925, 850, 700, 500, 300, 200]
+   ```
+
+2. **Set Resolution** – Extract ERA5 patches on the 0.25° latitude/longitude
+   grid expected by GraphCast:
+
+   ```yaml
+   model:
+     graphcast:
+       resolution: 0.25
+   ```
+
+3. **Align with ERA5** – During extraction the `HurricaneDataPipeline` resamples
+   ERA5 data to this grid and snaps timestamps to the nearest analysis hour so
+   the resulting `xarray.Dataset` matches GraphCast's expectations.
+
+### Enabling GraphCast Extraction
+
+Activate GraphCast features in the pipeline with the following configuration:
+
+```yaml
+model:
+  name: graphcast
+  graphcast:
+    checkpoint_path: "models/graphcast/params.npz"
+training:
+  include_era5: true
+```
+
+This configuration instructs the pipeline to download the required ERA5
+variables at 0.25° resolution and provide them to GraphCast during processing.
 
