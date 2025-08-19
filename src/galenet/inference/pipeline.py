@@ -98,6 +98,17 @@ class GaleNetPipeline:
                 logger.error("Failed to load GraphCast model: {}", exc)
                 raise RuntimeError("GraphCast model could not be initialized") from exc
 
+        if model_name == "pangu":
+            from ..models.pangu import PanguModel
+
+            pangu_cfg = getattr(self.config.model, "pangu", {})
+            checkpoint = getattr(pangu_cfg, "checkpoint_path", "")
+            try:
+                return PanguModel(checkpoint)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Failed to load Pangu model: {}", exc)
+                raise RuntimeError("Pangu model could not be initialized") from exc
+
         if model_name in {"hurricane_ensemble", "ensemble"}:
             return _PersistenceModel()
 
@@ -163,11 +174,13 @@ class GaleNetPipeline:
         # Load and validate historical track
         # ------------------------------------------------------------------
         from ..models.graphcast import GraphCastModel
+        from ..models.pangu import PanguModel
 
         is_graphcast = isinstance(self.model, GraphCastModel)
+        is_pangu = isinstance(self.model, PanguModel)
 
         data = self.data.load_hurricane_for_training(
-            storm_id, source=source, include_era5=is_graphcast
+            storm_id, source=source, include_era5=is_graphcast or is_pangu
         )
         track = data["track"].copy().sort_values("timestamp").reset_index(drop=True)
 
@@ -192,17 +205,18 @@ class GaleNetPipeline:
         step = int(self.config.inference.time_step)
         num_steps = int(forecast_hours // step)
 
-        if is_graphcast:
+        if is_graphcast or is_pangu:
             era5 = data.get("era5")
             if era5 is None:
+                model_name = "GraphCast" if is_graphcast else "Pangu"
                 raise RuntimeError(
-                    "GraphCastModel requires ERA5 environmental fields at 0.25° resolution"
+                    f"{model_name}Model requires ERA5 environmental fields at 0.25° resolution"
                 )
             try:
                 fields_forecast = self.model.infer(era5)
             except Exception as exc:  # pragma: no cover - defensive
-                logger.error("GraphCast inference failed: {}", exc)
-                raise RuntimeError("GraphCast inference failed") from exc
+                logger.error("%s inference failed: %s", type(self.model).__name__, exc)
+                raise RuntimeError(f"{type(self.model).__name__} inference failed") from exc
             model = _PersistenceModel()
         else:
             fields_forecast = None
