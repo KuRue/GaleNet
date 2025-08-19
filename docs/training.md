@@ -42,17 +42,36 @@ python scripts/evaluate_baselines.py data/sample_storms.json \
 The command reports track and intensity errors and writes a summary under
 `results/`. See the [Evaluation Guide](evaluation.md) for details.
 
-## GraphCast Placeholder
+## GraphCast Model
 
-Experimental hooks expose placeholder GraphCast weights for upcoming
-integration. Configure the checkpoint in your YAML config:
+GaleNet ships with a thin wrapper around DeepMind's GraphCast weather model.
+To use it during training, point the configuration to a pre-trained checkpoint
+and specify whether the GraphCast backbone should be frozen:
 
 ```yaml
 model:
+  name: graphcast
   graphcast:
-    checkpoint: "models/graphcast/params.npz"
-    freeze_backbone: true
+    checkpoint_path: "models/graphcast/params.npz"
+    freeze_backbone: true  # set to false to fine‑tune GraphCast
+training:
+  include_era5: true  # provide ERA5 fields for GraphCast
 ```
 
-The weights are currently stubs and do not provide full GraphCast capability;
-future releases will fuse these features into the training loop.
+The dataset must supply ERA5 atmospheric variables at 0.25° resolution, which
+the pipeline passes to GraphCast as input.  When `freeze_backbone` is true the
+GraphCast weights remain fixed and only GaleNet's head is optimized; setting it
+to false enables full fine‑tuning.
+
+### Example: GraphCast-backed Training
+
+Run a GraphCast-supported training session with:
+
+```bash
+python scripts/train_model.py model.name=graphcast \
+    model.graphcast.checkpoint_path=/path/to/params.npz \
+    model.graphcast.freeze_backbone=false \
+    training.include_era5=true training.epochs=5
+```
+
+This command fine‑tunes GraphCast while training GaleNet's forecasting head.
