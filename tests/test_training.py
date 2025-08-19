@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import json
 
 import numpy as np
 import pandas as pd
@@ -88,7 +89,7 @@ def test_trainer_single_step_reduces_loss() -> None:
         ).item()
 
     metrics = list(trainer.train(loader, epochs=1))
-    assert "loss" in metrics[0]
+    assert "train_loss" in metrics[0]
 
     with torch.no_grad():
         final = torch.nn.functional.mse_loss(model(batch_inputs), batch_targets).item()
@@ -140,4 +141,42 @@ def test_trainer_checkpoint_restore(tmp_path) -> None:
 
     list(trainer.train(loader, epochs=1, start_epoch=1))
     assert not torch.allclose(model[1].weight, saved_weights)
+
+
+def test_trainer_logs_metrics(tmp_path) -> None:
+    pipeline = DummyPipeline()
+    dataset = HurricaneDataset(
+        pipeline, ["TEST"], sequence_window=1, forecast_window=1, include_era5=False
+    )
+    loader = create_dataloader(dataset, batch_size=1, shuffle=False)
+
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4, bias=False))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    metrics_file = tmp_path / "metrics.jsonl"
+    trainer = Trainer(model, optimizer, metrics_file=metrics_file)
+
+    list(trainer.train(loader, epochs=2))
+    lines = metrics_file.read_text().strip().splitlines()
+    assert len(lines) == 2
+    first = json.loads(lines[0])
+    assert first["epoch"] == 1 and "train_loss" in first
+
+
+def test_trainer_validation_loop() -> None:
+    pipeline = DummyPipeline()
+    train_dataset = HurricaneDataset(
+        pipeline, ["A"], sequence_window=1, forecast_window=1, include_era5=False
+    )
+    val_dataset = HurricaneDataset(
+        pipeline, ["B"], sequence_window=1, forecast_window=1, include_era5=False
+    )
+    train_loader = create_dataloader(train_dataset, batch_size=1, shuffle=False)
+    val_loader = create_dataloader(val_dataset, batch_size=1, shuffle=False)
+
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4, bias=False))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    trainer = Trainer(model, optimizer)
+
+    metrics = list(trainer.train(train_loader, epochs=1, val_dataloader=val_loader))
+    assert "val_loss" in metrics[0]
 

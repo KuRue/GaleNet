@@ -103,6 +103,8 @@ training:
   forecast_window: 1
   include_era5: false
   shuffle: true
+  resume_from: null
+  val_storms: []
   
   # Scheduler
   scheduler:
