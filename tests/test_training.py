@@ -7,10 +7,6 @@ import pandas as pd
 import pytest
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
-# Ensure any stubs from other tests are removed before importing
-for mod in list(sys.modules):
-    if mod.startswith("torch"):
-        sys.modules.pop(mod, None)
 torch = pytest.importorskip("torch")
 sys.modules.pop("galenet.training", None)
 from galenet.training import HurricaneDataset, Trainer, create_dataloader

@@ -18,9 +18,9 @@ def _patch(module) -> None:
 _orig_import = builtins.__import__
 
 
-def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
+def _patched_import(name, globals=None, locals=None, fromlist=None, level=0):
     module = _orig_import(name, globals, locals, fromlist, level)
-    if name == "torch._C" or (name.startswith("torch") and "_C" in fromlist):
+    if name == "torch._C" or (name.startswith("torch") and fromlist and "_C" in fromlist):
         _patch(module)
     return module
 
