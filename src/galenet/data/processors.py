@@ -1,6 +1,6 @@
 """Data preprocessing modules for GaleNet hurricane forecasting."""
 
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import json
 import numpy as np
@@ -8,14 +8,7 @@ import pandas as pd
 import xarray as xr
 from loguru import logger
 from sklearn.preprocessing import StandardScaler
-
-try:  # pragma: no cover - optional dependency
-    import torch
-except ModuleNotFoundError:  # pragma: no cover - handled in to_tensor
-    torch = None  # type: ignore[assignment]
-
-if TYPE_CHECKING:  # pragma: no cover - for type checkers only
-    import torch as torch_typing
+import torch
 
 
 class HurricanePreprocessor:
@@ -398,7 +391,7 @@ class ERA5Preprocessor:
         variables: Optional[List[str]] = None,
         dtype: "Optional[torch.dtype]" = None,
     ) -> "torch.Tensor":
-        """Convert xarray dataset to PyTorch tensor.
+        """Convert xarray dataset to a PyTorch tensor.
 
         Args:
             data: xarray dataset
@@ -408,8 +401,6 @@ class ERA5Preprocessor:
         Returns:
             Tensor of shape (C, H, W) or (T, C, H, W) if time dimension exists
         """
-        if torch is None:
-            raise ImportError("PyTorch is required for tensor conversion")
 
         if variables is None:
             variables = list(data.data_vars)

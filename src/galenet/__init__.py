@@ -23,13 +23,8 @@ from .data import (
 
 # Main pipeline
 from .inference.pipeline import GaleNetPipeline
-# Training utilities require optional dependencies (e.g., PyTorch).  Import them
-# lazily so that inference-only environments can function without the heavy ML
-# stack installed.
-try:  # pragma: no cover - import guard
-    from .training import HurricaneDataset, Trainer, mse_loss
-except Exception:  # pragma: no cover - optional
-    HurricaneDataset = Trainer = mse_loss = None  # type: ignore
+# Training utilities rely on PyTorch and are imported by default.
+from .training import HurricaneDataset, Trainer, mse_loss
 
 __all__ = [
     # Version info

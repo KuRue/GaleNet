@@ -20,6 +20,9 @@ This guide walks through setting up GaleNet on a new machine.
    conda env create -f environment.yml
    conda activate galenet
    ```
+   This environment installs the CPU build of PyTorch. For GPU acceleration,
+   follow the [official instructions](https://pytorch.org/get-started/locally/)
+   to install a CUDA-enabled build.
 3. **Install in development mode**
    ```bash
    pip install -e .

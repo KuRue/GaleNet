@@ -14,11 +14,10 @@ dependencies:
   # - cudnn=9.0
   # - nccl
 
-  # PyTorch with CUDA support (optional)
-  # - pytorch=2.2.*
-  # - torchvision=0.17.*
-  # - torchaudio=2.2.*
-  # - pytorch-cuda=12.4
+  # PyTorch (CPU by default; install CUDA packages separately if needed)
+  - pytorch=2.2.*
+  - torchvision=0.17.*
+  - cpuonly
   
   # Scientific computing (conda is better for these)
   - numpy<2.0
