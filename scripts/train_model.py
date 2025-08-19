@@ -8,20 +8,20 @@ from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
-import torch
 
 from galenet.data import HurricaneDataPipeline
-from galenet.training import HurricaneDataset, Trainer, create_dataloader
 
 log = logging.getLogger(__name__)
 
 
-def build_model(cfg: DictConfig) -> torch.nn.Module:
+def build_model(cfg: DictConfig) -> "torch.nn.Module":
     """Instantiate a model based on ``cfg.model.name``.
 
     The helper returns wrappers around GraphCast or Pangu models when requested.
     For unknown model names a simple linear baseline is returned.
     """
+
+    import torch
 
     name = cfg.model.get("name", "").lower()
     if name == "graphcast":
@@ -74,6 +74,13 @@ def main(cfg: DictConfig) -> None:
     """Train a simple model using configuration from Hydra."""
 
     logging.basicConfig(level=logging.INFO)
+
+    import importlib
+    try:
+        torch = importlib.import_module("torch")
+    except ModuleNotFoundError as exc:  # pragma: no cover - handled by tests
+        raise ModuleNotFoundError("No module named 'torch'") from exc
+    from galenet.training import HurricaneDataset, Trainer, create_dataloader
 
     model_name = cfg.model.get("name", "").lower()
     needs_era5 = model_name in {"graphcast", "pangu"}
