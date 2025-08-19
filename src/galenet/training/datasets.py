@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterator, List, Sequence, Tuple
+from typing import Any, Iterator, List, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -123,7 +123,7 @@ def create_dataloader(
     dataset: HurricaneDataset,
     batch_size: int = 32,
     shuffle: bool = True,
-    **kwargs: object,
+    **kwargs: Any,
 ) -> DataLoader:
     """Create a :class:`~torch.utils.data.DataLoader` for ``dataset``."""
 
