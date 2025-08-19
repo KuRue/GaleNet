@@ -10,15 +10,15 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Installation, data pipeline, architecture, training, and API documentation.
 - Tutorial notebooks demonstrating basic workflows.
 - Full GraphCast integration with accompanying training and pipeline docs.
+- Full Pangu-Weather integration with accompanying training and pipeline docs.
 
 ## Remaining Milestones
-- Extend training loop for Pangu-based models.
 - Publish comprehensive evaluation guide and usage examples.
 - **Upcoming**
    - Expand end-to-end data pipeline documentation and schema coverage *(target: 2025-10)*
 
 ## Phase Goals
-1. **Phase 1 – Data Foundation**: finalize dataset loaders, integrate GraphCast baseline, and document evaluation workflows.
+1. **Phase 1 – Data Foundation**: finalize dataset loaders, integrate GraphCast and Pangu baselines, and document evaluation workflows.
 2. **Phase 2 – Model Development**: integrate advanced forecast models and train baseline predictors.
 3. **Phase 3 – Evaluation & Deployment**: benchmark models, refine APIs, and prepare for public release.
 

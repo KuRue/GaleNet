@@ -119,8 +119,8 @@ GaleNet/
 ## 🎯 Areas for Contribution
 
 ### High Priority
-- [ ] GraphCast model integration
-- [ ] Pangu-Weather integration
+- [x] GraphCast model integration
+- [x] Pangu-Weather integration
 - [ ] Physics-informed loss functions
 - [ ] Real-time data ingestion
 
