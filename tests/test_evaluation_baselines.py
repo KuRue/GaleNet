@@ -308,3 +308,126 @@ def test_cli_evaluate_baselines(tmp_path, monkeypatch):
                 expected.loc[name, "intensity_mae"], rel=1e-4
             )
 
+
+def test_cli_evaluate_baselines_multi_model(tmp_path, monkeypatch):
+    storms = {
+        "S1": pd.DataFrame(
+            [
+                [0.0, 0.0, 40.0],
+                [1.0, 1.0, 42.0],
+                [2.0, 2.0, 44.0],
+                [3.0, 3.0, 46.0],
+                [4.0, 4.0, 48.0],
+            ],
+            columns=["latitude", "longitude", "max_wind"],
+        ),
+        "S2": pd.DataFrame(
+            [
+                [5.0, 5.0, 30.0],
+                [6.0, 5.0, 32.0],
+                [7.0, 5.0, 34.0],
+                [8.0, 5.0, 36.0],
+                [9.0, 5.0, 38.0],
+            ],
+            columns=["latitude", "longitude", "max_wind"],
+        ),
+    }
+
+    class DummyDataPipeline:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load_hurricane_for_training(self, storm_id, include_era5=False):
+            return {"track": storms[storm_id].copy()}
+
+    class DummyModel:
+        def __init__(self, offset: float):
+            self.offset = offset
+
+        def predict(self, df_hist, forecast, step):
+            last = df_hist.iloc[-1][["latitude", "longitude", "max_wind"]].to_numpy()
+            preds = np.repeat(last.reshape(1, 3), forecast, axis=0)
+            preds[:, 0] += self.offset
+            preds[:, 1] += self.offset
+            return pd.DataFrame(preds, columns=["latitude", "longitude", "max_wind"])
+
+    class DummyGaleNetPipeline:
+        def __init__(self, config, *args, **kwargs):
+            self.model = DummyModel(float(config))
+
+    monkeypatch.setattr(eval_cli, "HurricaneDataPipeline", DummyDataPipeline)
+    monkeypatch.setattr(eval_cli, "GaleNetPipeline", DummyGaleNetPipeline)
+
+    summary_path = tmp_path / "summary.csv"
+    details_path = tmp_path / "details.csv"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate_baselines.py",
+            "S1",
+            "S2",
+            "--history",
+            "3",
+            "--forecast",
+            "2",
+            "--model",
+            "m1=0.0",
+            "--model",
+            "m2=1.0",
+            "--output",
+            str(summary_path),
+            "--details",
+            str(details_path),
+        ],
+    )
+
+    eval_cli.main()
+
+    df_summary = pd.read_csv(summary_path, index_col=0)
+    df_details = pd.read_csv(details_path, index_col=[0, 1])
+
+    tracks = [storms[sid].to_numpy() for sid in ["S1", "S2"]]
+    baseline_forecasts = [
+        run_baselines(t[:3], 2, baselines=["persistence"])["persistence"]
+        for t in tracks
+    ]
+    model1_forecasts = baseline_forecasts
+    model2_forecasts = [f + np.array([1.0, 1.0, 0.0]) for f in baseline_forecasts]
+
+    expected_records = []
+    for sid, track, b_pred, m1_pred, m2_pred in zip(
+        ["S1", "S2"], tracks, baseline_forecasts, model1_forecasts, model2_forecasts
+    ):
+        truth = track[3:5]
+        for name, pred in [
+            ("persistence", b_pred),
+            ("m1", m1_pred),
+            ("m2", m2_pred),
+        ]:
+            res = compute_metrics(
+                pred[:, :2], truth[:, :2], pred[:, 2], truth[:, 2]
+            )
+            rec = {"storm": sid, "forecast": name}
+            rec.update(res)
+            expected_records.append(rec)
+
+    expected_details = pd.DataFrame(expected_records).set_index(["storm", "forecast"])
+    expected_summary = expected_details.groupby("forecast").mean()
+
+    for idx in expected_details.index:
+        assert df_details.loc[idx, "track_error"] == pytest.approx(
+            expected_details.loc[idx, "track_error"], rel=1e-4
+        )
+        assert df_details.loc[idx, "intensity_mae"] == pytest.approx(
+            expected_details.loc[idx, "intensity_mae"], rel=1e-4
+        )
+
+    for idx in expected_summary.index:
+        assert df_summary.loc[idx, "track_error"] == pytest.approx(
+            expected_summary.loc[idx, "track_error"], rel=1e-4
+        )
+        assert df_summary.loc[idx, "intensity_mae"] == pytest.approx(
+            expected_summary.loc[idx, "intensity_mae"], rel=1e-4
+        )
+
