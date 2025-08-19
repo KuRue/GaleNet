@@ -1,6 +1,6 @@
+import json
 import sys
 from pathlib import Path
-import json
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,8 @@ import pytest
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 torch = pytest.importorskip("torch")
 sys.modules.pop("galenet.training", None)
-from galenet.training import HurricaneDataset, Trainer, create_dataloader
+from galenet.training import (HurricaneDataset, Trainer,  # noqa: E402
+                              create_dataloader)
 
 
 class DummyPipeline:
@@ -176,4 +177,3 @@ def test_trainer_validation_loop() -> None:
 
     metrics = list(trainer.train(train_loader, epochs=1, val_dataloader=val_loader))
     assert "val_loss" in metrics[0]
-

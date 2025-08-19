@@ -152,9 +152,7 @@ docs-serve:
 # Data validation
 validate-data:
 	@echo "Validating data setup..."
-	$(PYTHON) -c "from galenet.data.hurdat2 import HURDAT2Loader; \\
-	loader = HURDAT2Loader(); \\
-	print('Data validation:', 'PASSED' if loader.data_path.exists() else 'FAILED')"
+	$(PYTHON) -c "from galenet.data.hurdat2 import HURDAT2Loader; loader = HURDAT2Loader(); print('Data validation:', 'PASSED' if loader.data_path.exists() else 'FAILED')"
 
 # Training shortcuts
 train-quick:

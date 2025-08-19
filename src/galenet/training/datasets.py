@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Iterator, List, Sequence, Tuple
+from typing import Iterator, List, Sequence, Tuple
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, IterableDataset
 
 from ..data import HurricaneDataPipeline
-
 
 TrackPair = Tuple[torch.Tensor, torch.Tensor]
 TrackTriplet = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]

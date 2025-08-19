@@ -77,7 +77,11 @@ class GraphCastModel:
                 out = self._model(arr)
             except Exception as exc:  # pragma: no cover - runtime failure
                 raise RuntimeError(f"GraphCast inference failed: {exc}") from exc
-            return xr.DataArray(np.asarray(out, dtype=np.float32), coords=climate.coords, dims=climate.dims)
+            return xr.DataArray(
+                np.asarray(out, dtype=np.float32),
+                coords=climate.coords,
+                dims=climate.dims,
+            )
 
         arr = np.asarray(climate, dtype=np.float32)
         try:
@@ -96,4 +100,3 @@ class GraphCastModel:
 
 
 __all__ = ["GraphCastModel"]
-

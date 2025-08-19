@@ -9,4 +9,4 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import sitecustomize  # noqa: F401
+import sitecustomize  # noqa: E402,F401

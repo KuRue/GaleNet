@@ -12,6 +12,11 @@ from loguru import logger
 from ..utils.config import get_config
 
 
+def _parse_radius(value: str) -> float:
+    """Parse a wind radius value, returning ``np.nan`` when missing."""
+    return int(value) if value and value != "-999" else np.nan
+
+
 class HURDAT2Loader:
     """Loader for HURDAT2 Atlantic hurricane database."""
 
@@ -117,10 +122,10 @@ class HURDAT2Loader:
                     # Add wind radii if available
                     if len(parts) > 8:
                         wind_radii = {
-                            "34kt_ne": int(parts[8]) if parts[8] and parts[8] != "-999" else np.nan,
-                            "34kt_se": int(parts[9]) if parts[9] and parts[9] != "-999" else np.nan,
-                            "34kt_sw": int(parts[10]) if parts[10] and parts[10] != "-999" else np.nan,
-                            "34kt_nw": int(parts[11]) if parts[11] and parts[11] != "-999" else np.nan,
+                            "34kt_ne": _parse_radius(parts[8]),
+                            "34kt_se": _parse_radius(parts[9]),
+                            "34kt_sw": _parse_radius(parts[10]),
+                            "34kt_nw": _parse_radius(parts[11]),
                         }
                         record.update(wind_radii)
 
