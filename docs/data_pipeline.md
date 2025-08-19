@@ -114,3 +114,49 @@ training:
 This configuration instructs the pipeline to download the required ERA5
 variables at 0.25° resolution and provide them to GraphCast during processing.
 
+## Preparing Pangu Inputs
+
+Pangu-Weather ingests a richer 3D ERA5 cube to supply atmospheric context.
+
+1. **Select Variables** – Request the surface and pressure‑level fields needed
+   by Pangu:
+
+   ```yaml
+   data:
+     era5:
+       variables:
+         - "geopotential"
+         - "temperature"
+         - "u_component_of_wind"
+         - "v_component_of_wind"
+         - "specific_humidity"
+         - "mean_sea_level_pressure"
+         - "10m_u_component_of_wind"
+         - "10m_v_component_of_wind"
+         - "2m_temperature"
+       pressure_levels: [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100, 70, 50]
+   ```
+
+2. **Set Resolution** – Extract ERA5 patches on Pangu's 0.25° grid:
+
+   ```yaml
+   model:
+     pangu:
+       resolution: 0.25
+   ```
+
+3. **Enable Pangu** – Activate the backbone and ensure ERA5 fields are passed
+   through the pipeline:
+
+   ```yaml
+   model:
+     name: pangu
+     pangu:
+       checkpoint_path: "models/pangu/params.npz"
+   training:
+     include_era5: true
+   ```
+
+This configuration prepares the required ERA5 data for Pangu during
+preprocessing.
+
