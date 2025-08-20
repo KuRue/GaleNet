@@ -131,6 +131,7 @@ training:
   shuffle: true
   resume_from: null
   val_storms: ["AL012020", "AL052020", "AL092021", "AL152021"]
+  test_storms: []  # All remaining 2022–2023 Atlantic hurricanes
 
   # Scheduler
   scheduler:
