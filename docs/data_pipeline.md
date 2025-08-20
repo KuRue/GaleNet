@@ -117,8 +117,8 @@ variables at 0.25° resolution and provide them to GraphCast during processing.
 ## Preparing Pangu Inputs
 
 Pangu-Weather ingests a richer 3D ERA5 cube to supply atmospheric context. The
-backbone is currently used for inference only; training or fine-tuning Pangu is
-not supported.
+backbone is used for inference only, and GaleNet does not train or update Pangu
+weights.
 
 1. **Select Variables** – Request the surface and pressure‑level fields needed
    by Pangu:

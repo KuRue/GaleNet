@@ -78,9 +78,9 @@ This command fine‑tunes GraphCast while training GaleNet's forecasting head.
 
 ## Pangu-Weather Model (Inference Only)
 
-The Pangu-Weather backbone provides an alternative physics-informed encoder for
-inference. GaleNet uses the pre-trained Pangu weights without fine-tuning; the
-backbone runs in inference mode only.
+The Pangu-Weather backbone provides an alternative physics-informed encoder used
+solely during inference. GaleNet loads the pre-trained Pangu weights but does
+not update them during training.
 
 ### Required ERA5 Variables
 

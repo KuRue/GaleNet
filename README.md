@@ -8,13 +8,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-GaleNet explores AI‑based techniques for tropical cyclone forecasting. The project currently focuses on data pipelines, baseline training/evaluation scripts, and full GraphCast and Pangu‑Weather integration.
+GaleNet explores AI‑based techniques for tropical cyclone forecasting. The project currently focuses on data pipelines, baseline training/evaluation scripts, GraphCast training, and Pangu‑Weather inference integration.
 
 ## 🌟 Key Features
 
 - **Hurricane Data Pipeline** – loaders for HURDAT2, IBTrACS, and optional ERA5 patches.
 - **Baseline Training & Evaluation Scripts** – minimal examples for model experimentation.
-- **Full GraphCast & Pangu-Weather Support** – integrated training and data pipelines leveraging GraphCast and Pangu‑Weather; see the [training guide](docs/training.md) and [pipeline docs](docs/data_pipeline.md).
+- **GraphCast Training & Pangu-Weather Inference** – integrated training utilities for GraphCast and an inference pipeline using Pangu‑Weather; see the [training guide](docs/training.md) and [pipeline docs](docs/data_pipeline.md).
 - **Hydra Configuration** – reproducible experiments managed through YAML configs.
 - **Modular Design** – architecture prepared for additional forecasting models.
 
@@ -27,7 +27,7 @@ Phase 1 focuses on establishing the foundation for future work:
 
 ### ✅ Completed
 
-- Full GraphCast and Pangu‑Weather integration with training and pipeline documentation
+- Full GraphCast training and Pangu‑Weather inference integration with pipeline documentation
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the full list of milestones and progress updates.
 
@@ -162,7 +162,7 @@ docker run --gpus all -p 8000:8000 galenet:latest
 - [x] Data pipeline with HURDAT2/IBTrACS loaders
 - [x] Baseline training and evaluation scripts
 - [x] Full GraphCast integration with extended documentation
-- [x] Full Pangu-Weather integration with extended documentation
+- [x] Full Pangu-Weather inference integration with extended documentation
 
 ### Phase 2: Model Development 📃 **Planned**
 - [ ] CNN‑Transformer models

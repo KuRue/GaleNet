@@ -10,7 +10,7 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 - Installation, data pipeline, architecture, training, and API documentation.
 - Tutorial notebooks demonstrating basic workflows.
 - Full GraphCast integration with accompanying training and pipeline docs.
-- Full Pangu-Weather integration with accompanying training and pipeline docs.
+- Full Pangu-Weather inference integration with accompanying pipeline docs.
 
 ## Remaining Milestones
 - Publish comprehensive evaluation guide and usage examples.
