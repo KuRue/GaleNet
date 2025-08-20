@@ -1,6 +1,6 @@
 # Data Pipeline
 
-This document describes the data pipeline used by GaleNet, including dataset schemas, preprocessing stages, and ERA5 patch extraction. For instructions on gathering datasets, see the [Data Workflow](data_workflow.md). After data preparation, continue with the [Training Guide](training.md) or [Evaluation Guide](evaluation.md).
+This document describes the data pipeline used by GaleNet, including dataset schemas, preprocessing stages, and ERA5 patch extraction. For a step-by-step walkthrough from raw archives to model-ready tensors see the [Full Data Pipeline Guide](data_pipeline_full.md). For instructions on gathering datasets, see the [Data Workflow](data_workflow.md). After data preparation, continue with the [Training Guide](training.md) or [Evaluation Guide](evaluation.md).
 
 ## End-to-End Workflow
 
