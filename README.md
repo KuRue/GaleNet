@@ -193,17 +193,14 @@ docker run --gpus all -p 8000:8000 galenet:latest
 
 ### Phase 2: Model Development 📃 **Planned**
 
-- [ ] **CNN‑Transformer baseline**  
-  - *Evaluation*: 24–72 h track and intensity RMSE compared against GraphCast; target <20 km track error at 24 h.  
-  - *Target Date*: 2025‑12
+- [ ] **CNN‑Transformer baseline**
+  - *Goal*: 24–72 h track and intensity RMSE compared against GraphCast with <20 km track error at 24 h.
 
-- [ ] **Physics‑informed module prototypes**  
-  - *Evaluation*: Conservation metrics (e.g., mass, energy) improve ≥10 % over baseline.  
-  - *Target Date*: 2026‑02
+- [ ] **Physics‑informed module prototypes**
+  - *Goal*: Conservation metrics (e.g., mass, energy) improve ≥10 % over baseline.
 
-- [ ] **Ensemble strategy**  
-  - *Evaluation*: Continuous ranked probability score and reliability diagrams show ≥5 % improvement over best single model.  
-  - *Target Date*: 2026‑03
+- [ ] **Ensemble strategy**
+  - *Goal*: Continuous ranked probability score and reliability diagrams show ≥5 % improvement over best single model.
 
 ### Phase 3: Optimization 🔧 **Planned**
 - [ ] Memory and performance tuning

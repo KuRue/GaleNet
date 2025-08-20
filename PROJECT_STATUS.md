@@ -15,12 +15,12 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 
 ## Remaining Milestones
 - **Completed**
-   - Comprehensive evaluation guide with GraphCast and Pangu-Weather examples *(completed: 2025-08)*
+   - Comprehensive evaluation guide with GraphCast and Pangu-Weather examples
 - **Upcoming**
-   - Expand end-to-end data pipeline documentation and schema coverage *(target: 2025-10)*
-   - Train CNN‑Transformer baseline and report 24–72 h track RMSE *(target: 2025-12)*
-   - Prototype physics‑informed modules with improved conservation metrics *(target: 2026-02)*
-   - Evaluate ensemble strategy with CRPS and reliability comparisons *(target: 2026-03)*
+   - Expand end-to-end data pipeline documentation and schema coverage
+   - Train CNN‑Transformer baseline and report 24–72 h track RMSE (<20 km at 24 h)
+   - Prototype physics‑informed modules with ≥10 % improvement in conservation metrics
+   - Evaluate ensemble strategy with ≥5 % gain in CRPS and reliability over single models
 
 ## Phase Goals
 1. **Phase 1 – Data Foundation** ✅ *Completed*: finalize dataset loaders, integrate GraphCast and Pangu baselines, and document evaluation workflows.
