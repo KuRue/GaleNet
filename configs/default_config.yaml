@@ -103,11 +103,14 @@ model:
     dropout: 0.1
 
   # Ensemble settings
-  # TODO: Implement ensemble model options
   ensemble:
-    size: 50
-    method: "perturbation"  # perturbation, dropout, multi_model
-    perturbation_scale: 0.01
+    size: 50                         # Number of ensemble members
+    method: "perturbation"          # Options: perturbation, dropout, multi_model
+    aggregation: "mean"             # How to combine member forecasts: mean or median
+    perturbation_scale: 0.01         # Std. dev. of Gaussian noise when method=perturbation
+    dropout_rate: 0.1               # Dropout probability when method=dropout
+    models: ["graphcast", "pangu"]  # Model names when method=multi_model
+    weights: [0.5, 0.5]             # Relative weights for multi_model aggregation
 
 # Training configuration
 training:
@@ -172,6 +175,12 @@ inference:
   ensemble:
     enabled: true
     size: 50
+    method: "perturbation"          # perturbation, dropout, multi_model
+    aggregation: "mean"
+    perturbation_scale: 0.01
+    dropout_rate: 0.1
+    models: ["graphcast", "pangu"]
+    weights: [0.5, 0.5]
 
   # Post-processing
   post_process:

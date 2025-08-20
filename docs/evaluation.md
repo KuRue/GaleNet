@@ -5,6 +5,7 @@ This guide shows how to evaluate baseline and model forecasts on prepared hurric
 ## Prerequisites
 - Data prepared as described in the [Data Workflow](data_workflow.md).
 - (Optional) Trained model from the [Training Guide](training.md).
+- `properscoring` and `scikit-learn` installed for probabilistic metrics.
 
 ## Running `scripts/evaluate_baselines.py`
 The CLI accepts one or more storm identifiers and evaluates a set of baselines. For example, save storm IDs in a text file:
@@ -51,6 +52,57 @@ The evaluator reads the default metric list from `evaluation.metrics` in
 `METRIC_FUNCTIONS`【F:src/galenet/evaluation/metrics.py†L12-L15】【F:src/galenet/evaluation/metrics.py†L146-L152】.
 To track additional metrics, implement a new function, add it to that
 dictionary, and list its name in your configuration.
+
+## Probabilistic evaluation
+Ensemble forecasts can assess uncertainty. GaleNet supports computation of
+the continuous ranked probability score (CRPS) and reliability diagrams.
+
+### CRPS
+The CRPS compares the ensemble cumulative distribution function against the
+observed outcome. Lower values indicate a sharper and more accurate ensemble.
+For a set of ensemble members `ens` and observations `obs` the score can be
+computed with:
+
+```python
+from properscoring import crps_ensemble
+score = crps_ensemble(obs, ens)
+```
+
+Example CRPS by lead time (lower is better):
+
+```
+CRPS
+0.6 |           *
+0.5 |        *
+0.4 |     *
+0.3 |   *
+0.2 | *
+0.0 +---------------- Lead time (h)
+      6   12   18   24
+```
+
+### Reliability diagram
+A reliability diagram bins forecast probabilities and plots them against the
+observed frequency of events. A perfectly reliable ensemble lies on the
+diagonal.
+
+```python
+from sklearn.calibration import calibration_curve
+prob_true, prob_pred = calibration_curve(events, probs, n_bins=10)
+```
+
+Example reliability diagram:
+
+```
+Observed freq
+1.0 |           *
+0.8 |         *
+0.6 |       *
+0.4 |     *
+0.2 |   *
+0.0 +--------------- Forecast prob
+      0.0   0.5   1.0
+```
 
 ## Example output
 Running the command above yields console output similar to:

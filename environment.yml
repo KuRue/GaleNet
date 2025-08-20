@@ -8,7 +8,7 @@ channels:
 dependencies:
   # Python version
   - python=3.10
-  
+
   # CUDA and GPU libraries (optional)
   # - cuda-toolkit=12.4
   # - cudnn=9.0
@@ -18,7 +18,7 @@ dependencies:
   - pytorch=2.2.*
   - torchvision=0.17.*
   - cpuonly
-  
+
   # Scientific computing (conda is better for these)
   - numpy<2.0
   - scipy
@@ -29,7 +29,7 @@ dependencies:
   - h5netcdf
   - zarr
   - numba
-  
+
   # Geospatial packages (much easier with conda)
   - cartopy
   - geopandas
@@ -38,7 +38,7 @@ dependencies:
   - pyproj
   - shapely
   - fiona
-  
+
   # Visualization
   - matplotlib
   - seaborn
@@ -48,7 +48,7 @@ dependencies:
   - jupyterlab
   - ipywidgets
   - nodejs  # Required for some Jupyter extensions
-  
+
   # Development tools
   - pip
   - git
@@ -56,47 +56,48 @@ dependencies:
   - cmake
   - gcc_linux-64  # Linux only
   - gxx_linux-64  # Linux only
-  
+
   # Additional conda packages
   - eccodes  # For GRIB data
   - cfgrib   # For GRIB support in xarray
   - cftime   # For climate time handling
   - nc-time-axis
-  
+
   # Install remaining packages with pip
   - pip:
     # JAX with CUDA support
     # - jax[cuda12_pip]  # optional
     # - jaxlib  # optional
-    
+
     # AI/ML packages
     - transformers
     - einops
     - timm
     - peft
-    
+    - properscoring
+
     # GraphCast and Pangu-Weather (from git)
     - git+https://github.com/deepmind/graphcast.git
     # - git+https://github.com/198808xc/Pangu-Weather.git  # Install separately if repo is accessible
-    
+
     # API and configuration
     - fastapi
     - uvicorn[standard]
     - hydra-core
     - omegaconf
     - python-dotenv
-    
+
     # Monitoring
     - mlflow
     - tensorboard
     - prometheus-client
     - wandb
-    
+
     # Hurricane-specific
     - tropycal
     - metpy
     - pint
-    
+
     # Development
     - black
     - flake8
@@ -105,7 +106,7 @@ dependencies:
     - pytest-asyncio
     - pytest-cov
     - pre-commit
-    
+
     # Additional utilities
     - loguru
     - rich
@@ -115,7 +116,7 @@ dependencies:
     - cdsapi  # For ERA5 downloads
     - psutil
     - GPUtil
-    
+
     # Documentation
     - sphinx
     - sphinx-rtd-theme
@@ -125,7 +126,7 @@ variables:
   # CUDA environment variables
   CUDA_HOME: $CONDA_PREFIX
   TORCH_CUDA_ARCH_LIST: "7.5;8.0;8.6;8.9;9.0"  # Support for various GPU architectures
-  
+
   # JAX GPU support
   XLA_PYTHON_CLIENT_PREALLOCATE: "false"
   XLA_PYTHON_CLIENT_ALLOCATOR: "platform"
