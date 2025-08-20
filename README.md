@@ -183,12 +183,13 @@ docker run --gpus all -p 8000:8000 galenet:latest
 
 ## 📈 Current Development Status
 
-### Phase 1: Foundation ✅ **In Progress**
+### Phase 1: Foundation ✅ **Completed**
 - [x] Project structure and environment setup
 - [x] Data pipeline with HURDAT2/IBTrACS loaders
 - [x] Baseline training and evaluation scripts
 - [x] Full GraphCast integration with extended documentation
 - [x] Full Pangu-Weather inference integration with extended documentation
+- [x] Comprehensive evaluation guide with GraphCast and Pangu-Weather examples
 
 ### Phase 2: Model Development 📃 **Planned**
 - [ ] CNN‑Transformer models

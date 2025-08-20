@@ -45,6 +45,13 @@ For each forecast the script reports:
 - **intensity_mae** – mean absolute error in predicted intensity (kt)【F:src/galenet/evaluation/metrics.py†L99-L103】
 - **rapid_intensification_skill** – F1 score for detecting rapid intensification events【F:src/galenet/evaluation/metrics.py†L106-L143】
 
+## Custom metrics
+The evaluator reads the default metric list from `evaluation.metrics` in
+`configs/default_config.yaml` and computes the functions registered in
+`METRIC_FUNCTIONS`【F:src/galenet/evaluation/metrics.py†L12-L15】【F:src/galenet/evaluation/metrics.py†L146-L152】.
+To track additional metrics, implement a new function, add it to that
+dictionary, and list its name in your configuration.
+
 ## Example output
 Running the command above yields console output similar to:
 
