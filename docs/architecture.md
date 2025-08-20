@@ -9,7 +9,8 @@ GaleNet combines classic hurricane science with modern deep learning.
 - **Neural Network Core** – supports GraphCast and a Pangu‑Weather backbone for
   physics‑informed feature extraction. Pangu operates in inference mode only.
 - **Inference Pipeline** – the `GaleNetPipeline` class wraps preprocessing and
-  model execution, incorporating GraphCast outputs to guide track forecasts.
+  model execution, incorporating outputs from GraphCast or Pangu to guide track
+  forecasts.
 
 ### Backbone Options
 
