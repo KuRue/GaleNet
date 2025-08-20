@@ -64,7 +64,11 @@ def persistence_baseline(track: Sequence[Sequence[float]], forecast_steps: int) 
     last = track_arr[-1]
     return np.repeat(last[None, :], forecast_steps, axis=0)
 
-def run_baselines(track: Sequence[Sequence[float]], forecast_steps: int, baselines=None) -> Dict[str, np.ndarray]:
+def run_baselines(
+    track: Sequence[Sequence[float]],
+    forecast_steps: int,
+    baselines=None,
+) -> Dict[str, np.ndarray]:
     baselines = baselines or DEFAULT_BASELINES
     return {name: persistence_baseline(track, forecast_steps) for name in baselines}
 """
@@ -77,8 +81,13 @@ from typing import Sequence, Dict
 
 DEFAULT_METRICS = ["track_error", "intensity_mae"]
 
-def compute_metrics(track_pred: Sequence[Sequence[float]], track_truth: Sequence[Sequence[float]],
-                    intensity_pred: Sequence[float], intensity_truth: Sequence[float], metrics=None) -> Dict[str, float]:
+def compute_metrics(
+    track_pred: Sequence[Sequence[float]],
+    track_truth: Sequence[Sequence[float]],
+    intensity_pred: Sequence[float],
+    intensity_truth: Sequence[float],
+    metrics=None,
+) -> Dict[str, float]:
     metrics = metrics or DEFAULT_METRICS
     track_pred = np.asarray(track_pred)
     track_truth = np.asarray(track_truth)
@@ -86,9 +95,13 @@ def compute_metrics(track_pred: Sequence[Sequence[float]], track_truth: Sequence
     intensity_truth = np.asarray(intensity_truth)
     results = {}
     if "track_error" in metrics:
-        results["track_error"] = float(np.mean(np.linalg.norm(track_pred - track_truth, axis=1)))
+        results["track_error"] = float(
+            np.mean(np.linalg.norm(track_pred - track_truth, axis=1))
+        )
     if "intensity_mae" in metrics:
-        results["intensity_mae"] = float(np.mean(np.abs(intensity_pred - intensity_truth)))
+        results["intensity_mae"] = float(
+            np.mean(np.abs(intensity_pred - intensity_truth))
+        )
     return results
 """
 )
@@ -133,11 +146,15 @@ def test_evaluate_baselines_cli(tmp_path, suffix):
     )
     assert proc.returncode == 0, proc.stderr
 
-    assert output.exists()
+    assert output.exists(), "summary file should be created"
     if suffix == "csv":
         df = pd.read_csv(output, index_col=0)
     else:
         df = pd.read_json(output, orient="index")
+
+    # The summary contains one baseline with two metrics
+    assert df.index.tolist() == ["persistence"]
+    assert set(df.columns) == {"track_error", "intensity_mae"}
 
     expected_track_error = np.mean([np.sqrt(2), np.sqrt(8)])
     expected_intensity_mae = np.mean([5, 10])
