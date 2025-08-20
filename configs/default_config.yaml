@@ -15,7 +15,7 @@ project:
   seed: 42
   device: "cuda"  # cuda or cpu
   mixed_precision: true
-  
+
 # Data configuration
 data:
   # Data paths
@@ -23,13 +23,14 @@ data:
   hurdat2_path: "${data.root_dir}/hurdat2/hurdat2.txt"
   ibtracs_path: "${data.root_dir}/ibtracs/IBTrACS.ALL.v04r00.nc"
   era5_cache_dir: "${data.root_dir}/era5"
-  
+
   # Hurricane data settings
   min_hurricane_intensity: 64  # knots (Category 1)
+  # Phase 2 data splits
   training_years: [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
   validation_years: [2020, 2021]
   test_years: [2022, 2023]
-  
+
   # ERA5 settings
   era5:
     api_url: "${oc.env:CDSAPI_URL,https://cds.climate.copernicus.eu/api/v2}"
@@ -37,7 +38,7 @@ data:
     variables: ${model.graphcast.variables}  # Required ERA5 variables for GraphCast
     pressure_levels: [1000, 925, 850, 700, 500, 300, 200]
     patch_size: 25.0  # degrees
-    
+
   # Data pipeline settings
   pipeline:
     batch_size: 4
@@ -45,12 +46,12 @@ data:
     prefetch_factor: 2
     pin_memory: true
     shuffle: true
-    
+
 # Model configuration
 model:
   # Model selection
   name: "graphcast"  # Options: graphcast, pangu (implemented); hurricane_cnn (planned), ensemble (planned)
-  
+
   # GraphCast settings
   graphcast:
     checkpoint_path: "gs://dm_graphcast/graphcast/params/GraphCast - ERA5 1979-2017 - resolution 0.25 - pressure levels 37 - mesh 2to6 - precipitation input and output.npz"  # Official GraphCast weights
@@ -91,7 +92,7 @@ model:
     patch_size: 4  # Degrees per patch for the Transformer input
     embed_dim: 192  # Latent feature size for Pangu encoder
     num_heads: 16  # Attention heads in each Transformer block
-    
+
   # Hurricane CNN-Transformer
   # TODO: Implement Hurricane CNN-Transformer model
   hurricane_cnn:
@@ -100,14 +101,14 @@ model:
     hidden_dim: 256
     num_heads: 8
     dropout: 0.1
-    
+
   # Ensemble settings
   # TODO: Implement ensemble model options
   ensemble:
     size: 50
     method: "perturbation"  # perturbation, dropout, multi_model
     perturbation_scale: 0.01
-    
+
 # Training configuration
 training:
   # Basic settings
@@ -116,59 +117,66 @@ training:
   weight_decay: 1e-4
   gradient_clip: 1.0
   gradient_accumulation_steps: 8
-  storms: ["AL012011"]
+  # Final Phase 2 storm partitions
+  storms: [
+    "AL012010", "AL022010", "AL032010",
+    "AL012011", "AL052011", "AL062011",
+    "AL072012", "AL092013", "AL052014",
+    "AL112015", "AL042016", "AL082017",
+    "AL062018", "AL052019"
+  ]
   sequence_window: 1
   forecast_window: 1
   include_era5: false
   shuffle: true
   resume_from: null
-  val_storms: []
-  
+  val_storms: ["AL012020", "AL052020", "AL092021", "AL152021"]
+
   # Scheduler
   scheduler:
     name: "cosine"  # cosine, linear, exponential
     warmup_steps: 1000
     min_lr: 1e-6
-    
+
   # Loss functions
   loss:
     track_weight: 1.0
     intensity_weight: 0.5
     physics_weight: 0.2
-    
+
   # Physics-informed constraints
   physics:
     enforce_wind_pressure: true  # TODO: implement wind-pressure consistency checks
     enforce_gradient_wind: true  # TODO: enforce gradient wind balance
     max_intensification_rate: 50  # kt/24hr, TODO: cap intensification in training
-    
+
   # Checkpointing
   checkpoint:
     save_interval: 5  # epochs
     save_best: true
     monitor_metric: "val_track_error"
-    
+
   # Early stopping
   early_stopping:
     patience: 20
     min_delta: 0.001
-    
+
 # Inference configuration
 inference:
   # Forecast settings
   forecast_hours: 120  # 5 days
   time_step: 6  # hours
-  
+
   # Ensemble generation
   ensemble:
     enabled: true
     size: 50
-    
+
   # Post-processing
   post_process:
     smooth_track: true
     enforce_physics: true
-    
+
 # Evaluation configuration
 evaluation:
   metrics:
@@ -177,13 +185,13 @@ evaluation:
     - "cross_track_error"
     - "intensity_mae"
     - "rapid_intensification_skill"
-    
+
   baselines:
     - "persistence"
     - "cliper5"
     - "gfs"
     - "ecmwf"
-    
+
 # Logging configuration
 logging:
   level: "INFO"
@@ -191,25 +199,25 @@ logging:
     enabled: true
     tracking_uri: "file://${data.root_dir}/mlruns"
     experiment_name: "galenet_experiments"
-    
+
   tensorboard:
     enabled: true
     log_dir: "${data.root_dir}/logs"
-    
+
   wandb:
     enabled: false
     project: "galenet"
-    
+
 # Hardware configuration
 hardware:
   gpu:
     memory_fraction: 0.9
     allow_growth: true
-    
+
   distributed:
     enabled: false
     backend: "nccl"
-    
+
 # API configuration
 api:
   host: "0.0.0.0"

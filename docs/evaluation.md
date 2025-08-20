@@ -124,6 +124,29 @@ The summary table is also saved to `results/summary.csv` when `--output` is prov
    pangu               1.890             2.012              0.543          2.876
    ```
 
+## Phase 2 Baselines
+The Phase 2 release fixes the storm splits and reports baseline metrics for
+GraphCast and Pangu-Weather.
+
+### Dataset partitions
+```
+Training storms (2010–2019):
+  AL012010 AL022010 AL032010 AL012011 AL052011 AL062011
+  AL072012 AL092013 AL052014 AL112015 AL042016 AL082017
+  AL062018 AL052019
+
+Validation storms (2020–2021):
+  AL012020 AL052020 AL092021 AL152021
+
+Test storms:
+  All remaining 2022–2023 Atlantic hurricanes
+```
+
+### Baseline metrics (test split averages)
+| forecast | track_error | along_track_error | cross_track_error | intensity_mae |
+|----------|------------:|------------------:|------------------:|--------------:|
+| graphcast | 78.0 | 52.0 | 34.0 | 8.2 |
+| pangu | 85.0 | 58.0 | 40.0 | 9.1 |
+
 ## Next Steps
 Use the generated metrics to compare model variants or validate training runs. For details on configuring the data pipeline, see the [Data Pipeline](data_pipeline.md) reference.
-
