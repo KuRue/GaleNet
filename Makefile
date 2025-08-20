@@ -71,9 +71,6 @@ test-quick:
 	@echo "Running quick tests..."
 	pytest tests/ -v -k "not slow"
 
-test-data:
-	@echo "Testing data loading..."
-	$(PYTHON) scripts/test_data_loading.py
 
 lint:
 	@echo "Running linters..."
@@ -212,7 +209,7 @@ release-major:
 	bumpversion major
 
 # Quick start
-quickstart: setup install download-data test-data
+quickstart: setup install download-data test
 	@echo ""
 	@echo "GaleNet setup complete! 🌀"
 	@echo ""
