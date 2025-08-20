@@ -2,6 +2,68 @@
 
 This document describes the data pipeline used by GaleNet, including dataset schemas, preprocessing stages, and ERA5 patch extraction. For instructions on gathering datasets, see the [Data Workflow](data_workflow.md). After data preparation, continue with the [Training Guide](training.md) or [Evaluation Guide](evaluation.md).
 
+## End-to-End Workflow
+
+1. **Download Raw Datasets** – Fetch track archives and a sample ERA5 cube:
+
+   ```bash
+   python scripts/setup_data.py --all --data-dir $HOME/data/galenet
+   ```
+
+   Output directories:
+
+   ```
+   $HOME/data/galenet/
+   ├── hurdat2/hurdat2.txt
+   ├── ibtracs/IBTrACS.ALL.v04r00.nc
+   ├── era5/
+   ├── models/
+   └── cache/
+   ```
+
+   Runtime checkpoints: HURDAT2 (<1 min), IBTrACS (~5 min), sample ERA5 (~10 min per year).
+
+2. **Extract ERA5 Patches** – Use the pipeline to cache reanalysis data around a storm track:
+
+   ```bash
+   python - <<'PY'
+   from galenet import HurricaneDataPipeline
+   pipeline = HurricaneDataPipeline("configs/default_config.yaml")
+   storm = pipeline.load_hurricane_for_training(
+       storm_id="AL092019",
+       include_era5=True,
+       patch_size=25.0,
+   )
+   PY
+   ```
+
+   ERA5 downloads are stored under `$HOME/data/galenet/era5` and reused on subsequent runs (first download ~5–10 min, cached loads <1 min).
+
+3. **Assemble Final Dataset** – Persist the track and its ERA5 patches for training or evaluation:
+
+   ```bash
+   python - <<'PY'
+   from pathlib import Path
+   from galenet import HurricaneDataPipeline
+   pipeline = HurricaneDataPipeline("configs/default_config.yaml")
+   storm = pipeline.load_hurricane_for_training("AL092019", include_era5=True)
+   out_dir = Path("$HOME/data/galenet/processed/AL092019")
+   out_dir.mkdir(parents=True, exist_ok=True)
+   storm["track"].to_csv(out_dir / "track.csv", index=False)
+   storm["era5"].to_netcdf(out_dir / "era5.nc")
+   PY
+   ```
+
+   Resulting structure:
+
+   ```
+   processed/AL092019/
+   ├── track.csv
+   └── era5.nc
+   ```
+
+   Writing the assembled dataset typically takes only a few seconds.
+
 ## Dataset Schemas
 
 ### HURDAT2 and IBTrACS Track Data
@@ -161,4 +223,3 @@ weights.
 
 This configuration prepares the required ERA5 data for Pangu during
 preprocessing. The Pangu weights remain fixed and are only used for inference.
-
