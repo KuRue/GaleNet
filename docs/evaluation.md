@@ -72,6 +72,51 @@ persistence       20.134             26.845              0.000          3.000   
 
 The summary table is also saved to `results/summary.csv` when `--output` is provided.
 
+## Evaluating GraphCast
+1. **Configure weights** – ensure `configs/default_config.yaml` contains a valid
+   `model.graphcast.checkpoint_path` pointing to the official GraphCast weights.
+2. **Run the evaluator**:
+
+   ```bash
+   python scripts/evaluate_baselines.py $(cat sample_storms.txt) \
+     --history 3 --forecast 2 \
+     --model graphcast=configs/default_config.yaml \
+     --output results/graphcast.csv
+   ```
+
+3. **Inspect output** – the console shows an additional `graphcast` row and the
+   summary is written to `results/graphcast.csv`:
+
+   ```text
+   Summary:
+                track_error  along_track_error  cross_track_error  intensity_mae
+   forecast
+   graphcast           1.234             1.567              0.321          2.345
+   ```
+
+## Evaluating Pangu-Weather
+1. **Configure weights** – update `model.pangu.checkpoint_path` in
+   `configs/default_config.yaml` to the location of the Pangu-Weather
+   checkpoint.
+2. **Run the evaluator**:
+
+   ```bash
+   python scripts/evaluate_baselines.py $(cat sample_storms.txt) \
+     --history 3 --forecast 2 \
+     --model pangu=configs/default_config.yaml \
+     --output results/pangu.csv
+   ```
+
+3. **Inspect output** – the console now includes a `pangu` entry and metrics are
+   saved to `results/pangu.csv`:
+
+   ```text
+   Summary:
+                track_error  along_track_error  cross_track_error  intensity_mae
+   forecast
+   pangu               1.890             2.012              0.543          2.876
+   ```
+
 ## Next Steps
 Use the generated metrics to compare model variants or validate training runs. For details on configuring the data pipeline, see the [Data Pipeline](data_pipeline.md) reference.
 
