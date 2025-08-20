@@ -43,8 +43,8 @@ pip install -e .
 # Download data
 python scripts/setup_data.py --all
 
-# Test installation
-python scripts/test_data_loading.py
+# Validate installation
+pytest
 ```
 
 ## First Run
@@ -61,21 +61,11 @@ Then open http://localhost:8888 in your browser.
 
 Navigate to `notebooks/01_galenet_quickstart.ipynb` and run all cells.
 
-### 3. Test Data Loading (CLI)
+### 3. Evaluate Baselines (CLI)
 ```bash
-python scripts/test_data_loading.py
+python scripts/evaluate_baselines.py AL092023
 ```
-
-Expected output:
-```
-GaleNet Data Loading Test Suite
-============================================================
-Running: HURDAT2 Loading
-✅ HURDAT2 data found
-✅ Loaded 50,000+ records from 1,800+ storms
-...
-🎉 All tests passed!
-```
+This script downloads the required storm data and reports baseline forecast metrics.
 
 ## Basic Usage
 
@@ -148,14 +138,16 @@ ERA5 requires Copernicus Climate Data Store credentials:
 ```
 GaleNet/
 ├── src/galenet/       # Main package
-│   ├── data/         # Data loading & preprocessing
-│   ├── models/       # Model implementations (coming soon)
-│   ├── training/     # Training pipelines (coming soon)
-│   └── utils/        # Utilities
+│   ├── data/          # Data loading & preprocessing
+│   ├── models/        # GraphCast, Pangu and other models
+│   ├── training/      # Datasets, losses & trainer utilities
+│   ├── evaluation/    # Baseline evaluation and metrics
+│   ├── inference/     # Inference helpers
+│   └── utils/         # Utilities
+├── scripts/           # Command-line scripts
+├── configs/           # Configuration files
 ├── notebooks/         # Example notebooks
-├── scripts/          # Utility scripts
-├── configs/          # Configuration files
-└── tests/            # Unit tests
+└── tests/             # Unit tests
 ```
 
 ## Next Steps
@@ -163,7 +155,7 @@ GaleNet/
 1. **Explore the Data**: Run the quickstart notebook to visualize hurricane tracks
 2. **Preprocess Data**: Use `HurricanePreprocessor` to prepare training data
 3. **Download ERA5**: Get reanalysis data for atmospheric context
-4. **Stay Tuned**: Model training capabilities coming soon!
+4. **Train a Model**: Launch `scripts/train_model.py` with a config from `configs/`
 
 ## Getting Help
 
