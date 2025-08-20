@@ -16,8 +16,8 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
 ## Remaining Milestones
 - **Completed**
    - Comprehensive evaluation guide with GraphCast and Pangu-Weather examples
-- **Upcoming**
    - Expand end-to-end data pipeline documentation and schema coverage
+- **Upcoming**
    - Train CNN‑Transformer baseline and report 24–72 h track RMSE (<20 km at 24 h)
    - Prototype physics‑informed modules with ≥10 % improvement in conservation metrics
    - Evaluate ensemble strategy with ≥5 % gain in CRPS and reliability over single models
