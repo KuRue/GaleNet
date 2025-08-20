@@ -46,11 +46,15 @@ DATA_DIR := ~/data/galenet
 
 # Setup and Installation
 setup:
-	@echo "Creating conda environment..."
-	$(CONDA) env create -f environment.yml
-	@echo ""
-	@echo "Environment created! Activate with:"
-	@echo "  conda activate galenet"
+	@echo "Setting up development environment..."
+	@if command -v $(CONDA) >/dev/null 2>&1; then \
+		$(CONDA) env create -f environment.yml; \
+		echo ""; \
+		echo "Environment created! Activate with:"; \
+		echo "  conda activate galenet"; \
+	else \
+		echo "Conda not found, skipping environment creation. Ensure required packages are installed."; \
+	fi
 
 install:
 	@echo "Installing package in development mode..."
@@ -71,9 +75,6 @@ test-quick:
 	@echo "Running quick tests..."
 	pytest tests/ -v -k "not slow"
 
-test-data:
-	@echo "Testing data loading..."
-	$(PYTHON) scripts/test_data_loading.py
 
 lint:
 	@echo "Running linters..."
@@ -212,12 +213,12 @@ release-major:
 	bumpversion major
 
 # Quick start
-quickstart: setup install download-data test-data
+quickstart: install test
 	@echo ""
 	@echo "GaleNet setup complete! 🌀"
 	@echo ""
 	@echo "Next steps:"
-	@echo "1. Activate environment: conda activate galenet"
+	@echo "1. (Optional) create environment: make setup  # requires conda"
 	@echo "2. Start Jupyter: make notebook"
 	@echo "3. Run tests: make test"
 	@echo ""
