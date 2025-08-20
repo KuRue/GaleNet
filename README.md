@@ -95,9 +95,24 @@ python scripts/train_model.py training.epochs=5 training.batch_size=8
 
 #### Evaluation
 
+See the [Evaluation Guide](docs/evaluation.md) for full details.
+
+Evaluate baselines alongside a trained GraphCast or Pangu model (ensure the
+config file points to your model checkpoint):
+
 ```bash
-python scripts/evaluate_baselines.py data/sample_storms.json --history 3 --forecast 2 --model-config configs/default_config.yaml
+python scripts/evaluate_baselines.py AL012022 AL022022 --history 3 --forecast 2 \
+    --model graphcast=configs/default_config.yaml \
+    --model pangu=configs/default_config.yaml \
+    --output results/summary.csv --details results/per_storm.csv
 ```
+
+The command writes a summary table to `results/summary.csv` and per-storm
+metrics to `results/per_storm.csv`. Each row of the summary corresponds to a
+forecast method (baseline or model) with columns such as `track_error`,
+`along_track_error`, `cross_track_error` (km), `intensity_mae` (kt), and
+`rapid_intensification_skill` (F1). Lower error values indicate better
+performance.
 
 ## 📁 Project Structure
 
@@ -134,7 +149,7 @@ model:
   ensemble:
     size: 50
     method: "perturbation"
-    
+
 data:
   era5:
     path: "/data/era5"
