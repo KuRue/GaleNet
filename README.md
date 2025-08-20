@@ -64,6 +64,17 @@ python scripts/setup_data.py --download-era5 --download-models
 
 ### Usage Examples
 
+#### Data Pipeline
+
+Prepare datasets for a single storm with the setup script:
+
+```bash
+python scripts/setup_data.py --storm AL012022
+```
+
+By default, files are saved under `~/data/galenet/processed/AL012022/` (or your chosen `--data-dir`).
+See the [Data Pipeline guide](docs/data_pipeline.md) for additional details.
+
 #### Forecasting
 
 ```python
