@@ -12,3 +12,4 @@
 - [Installation Guide](installation.md)
 - [Model Architecture](architecture.md)
 - [API Reference](api_reference.md)
+- [CNN-Transformer Design Note](cnn_transformer.md)
