@@ -5,6 +5,7 @@ This guide shows how to evaluate baseline and model forecasts on prepared hurric
 ## Prerequisites
 - Data prepared as described in the [Data Workflow](data_workflow.md).
 - (Optional) Trained model from the [Training Guide](training.md).
+- `properscoring` and `scikit-learn` installed for probabilistic metrics.
 
 ## Running `scripts/evaluate_baselines.py`
 The CLI accepts one or more storm identifiers and evaluates a set of baselines. For example, save storm IDs in a text file:
