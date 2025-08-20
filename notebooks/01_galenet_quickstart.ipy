@@ -416,7 +416,7 @@
     "\n",
     "Future notebooks will cover:\n",
     "- ERA5 reanalysis data integration\n",
-    "- Model training with GraphCast/Pangu-Weather\n",
+    "- Model training with GraphCast and Pangu-Weather inference\n",
     "- Ensemble forecasting\n",
     "- Performance evaluation against GFS/ECMWF"
    ]
