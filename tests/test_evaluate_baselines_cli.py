@@ -2,8 +2,8 @@ import importlib.util
 import os
 import subprocess
 import sys
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -16,8 +16,8 @@ pytestmark = pytest.mark.skipif(
 )
 
 if pandas_spec and numpy_spec:  # pragma: no branch
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 
 STORM_DATA_CODE = textwrap.dedent(
     """
