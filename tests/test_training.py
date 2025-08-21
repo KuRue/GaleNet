@@ -9,8 +9,7 @@ import pytest
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 torch = pytest.importorskip("torch")
 sys.modules.pop("galenet.training", None)
-from galenet.training import (HurricaneDataset, Trainer,  # noqa: E402
-                              create_dataloader)
+from galenet.training import HurricaneDataset, Trainer, create_dataloader  # noqa: E402
 
 
 class DummyPipeline:
@@ -82,9 +81,7 @@ def test_trainer_single_step_reduces_loss() -> None:
 
     batch_inputs, batch_targets = next(iter(loader))
     with torch.no_grad():
-        initial = torch.nn.functional.mse_loss(
-            model(batch_inputs), batch_targets
-        ).item()
+        initial = torch.nn.functional.mse_loss(model(batch_inputs), batch_targets).item()
 
     metrics = list(trainer.train(loader, epochs=1))
     assert "train_loss" in metrics[0]
