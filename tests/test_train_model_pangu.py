@@ -86,7 +86,7 @@ def test_train_model_runs_one_epoch(monkeypatch, tmp_path):
                 self.inner = pangu.PanguModel(ckpt)
                 self.dummy = torch.nn.Parameter(torch.zeros(1))
 
-            def forward(self, era5: torch.Tensor) -> torch.Tensor:
+            def forward(self, _tracks: torch.Tensor, era5: torch.Tensor) -> torch.Tensor:
                 shape = (era5.shape[0], era5.shape[1], 1, 4)
                 return torch.zeros(shape, dtype=torch.float32) + self.dummy
 
