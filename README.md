@@ -200,7 +200,7 @@ docker run --gpus all -p 8000:8000 galenet:latest
   - *Goal*: Conservation metrics—total mass $M=\int_V \rho\,\mathrm{d}V$, total energy $E=\int_V \left[\tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z\right]\,\mathrm{d}V$, and vertical vorticity $\zeta=\partial v/\partial x - \partial u/\partial y$—improve ≥10 % over baseline. See [Physics-based Metrics](docs/physics_metrics.md) for details.
 
 - [ ] **Ensemble strategy**
-  - *Goal*: Continuous ranked probability score and reliability diagrams show ≥5 % improvement over best single model.
+  - *Goal*: Continuous ranked probability score and reliability diagrams show ≥5 % improvement over best single model (GraphCast CRPS 0.43, reliability 0.06; Pangu CRPS 0.47, reliability 0.08).
 
 ### Phase 3: Optimization 🔧 **Planned**
 - [ ] Memory and performance tuning
