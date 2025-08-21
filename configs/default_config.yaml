@@ -23,6 +23,15 @@ data:
   hurdat2_path: "${data.root_dir}/hurdat2/hurdat2.txt"
   ibtracs_path: "${data.root_dir}/ibtracs/IBTrACS.ALL.v04r00.nc"
   era5_cache_dir: "${data.root_dir}/era5"
+  satellite_cache_dir: "${data.root_dir}/satellite"
+
+  # Data source selections
+  satellite_sources: ["ir1", "ir2", "water_vapor"]
+  era5_single_level_vars:
+    - "sea_surface_temperature"
+    - "10m_u_component_of_wind"
+    - "10m_v_component_of_wind"
+    - "mean_sea_level_pressure"
 
   # Hurricane data settings
   min_hurricane_intensity: 64  # knots (Category 1)

@@ -15,11 +15,31 @@ from ..utils.config import get_config
 class ERA5Loader:
     """Loader for ERA5 reanalysis data."""
 
-    def __init__(self, cache_dir: Optional[Path] = None):
+    DEFAULT_SINGLE_LEVEL_VARS = [
+        "10m_u_component_of_wind",
+        "10m_v_component_of_wind",
+        "mean_sea_level_pressure",
+        "2m_temperature",
+        "2m_dewpoint_temperature",
+        "sea_surface_temperature",
+    ]
+    DEFAULT_PRESSURE_LEVEL_VARS = ["u_component_of_wind", "v_component_of_wind"]
+    DEFAULT_PRESSURE_LEVELS = ["200", "850"]
+
+    def __init__(
+        self,
+        cache_dir: Optional[Path] = None,
+        single_level_vars: Optional[List[str]] = None,
+        pressure_level_vars: Optional[List[str]] = None,
+        pressure_levels: Optional[List[str]] = None,
+    ):
         """Initialize ERA5 loader.
 
         Args:
             cache_dir: Directory to cache downloaded ERA5 data
+            single_level_vars: Default single level variables to request
+            pressure_level_vars: Default pressure level variables to request
+            pressure_levels: Pressure levels for pressure-level variables
         """
         if cache_dir is None:
             config = get_config()
@@ -27,6 +47,10 @@ class ERA5Loader:
 
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        self.single_level_vars = single_level_vars or self.DEFAULT_SINGLE_LEVEL_VARS
+        self.pressure_level_vars = pressure_level_vars or self.DEFAULT_PRESSURE_LEVEL_VARS
+        self.pressure_levels = pressure_levels or self.DEFAULT_PRESSURE_LEVELS
 
     def _cache_path(
         self,
@@ -82,9 +106,7 @@ class ERA5Loader:
         while current_year <= end_date.year:
             period_start = max(start_date, datetime(current_year, 1, 1))
             period_end = min(end_date, datetime(current_year, 12, 31))
-            path = self._download_single_period(
-                period_start, period_end, bounds, variables
-            )
+            path = self._download_single_period(period_start, period_end, bounds, variables)
             datasets.append(xr.open_dataset(path))
             current_year += 1
 
@@ -109,36 +131,19 @@ class ERA5Loader:
         import cdsapi
 
         if variables is None:
-            # Default variables required by the preprocessing pipeline. This
-            # includes both single-level fields and pressure-level winds used to
-            # compute vertical shear and humidity-related diagnostics.
-            single_level_vars = [
-                "10m_u_component_of_wind",
-                "10m_v_component_of_wind",
-                "mean_sea_level_pressure",
-                "2m_temperature",
-                "2m_dewpoint_temperature",
-                "sea_surface_temperature",
-            ]
-            pressure_level_vars = ["u_component_of_wind", "v_component_of_wind"]
-            pressure_levels = ["200", "850"]
+            single_level_vars = list(self.single_level_vars)
+            pressure_level_vars = list(self.pressure_level_vars)
+            pressure_levels = self.pressure_levels if pressure_level_vars else []
         else:
-            # Separate provided variables into single-level and pressure-level
             single_level_vars = []
             pressure_level_vars = []
+            known_single = set(self.DEFAULT_SINGLE_LEVEL_VARS)
             for var in variables:
-                if var in {
-                    "10m_u_component_of_wind",
-                    "10m_v_component_of_wind",
-                    "mean_sea_level_pressure",
-                    "2m_temperature",
-                    "2m_dewpoint_temperature",
-                    "sea_surface_temperature",
-                }:
+                if var in known_single:
                     single_level_vars.append(var)
                 else:
                     pressure_level_vars.append(var)
-            pressure_levels = ["200", "850"] if pressure_level_vars else []
+            pressure_levels = self.pressure_levels if pressure_level_vars else []
 
         # Create filename for this sub-period (includes variable hash)
         filepath = self._cache_path(start_date, end_date, bounds, variables)
@@ -250,10 +255,7 @@ class ERA5Loader:
             if pressure_level_vars:
                 for level in pressure_levels:
                     lvl = int(level)
-                    if (
-                        "u_component_of_wind" in merged
-                        and "v_component_of_wind" in merged
-                    ):
+                    if "u_component_of_wind" in merged and "v_component_of_wind" in merged:
                         u = (
                             merged["u_component_of_wind"]
                             .sel(pressure_level=lvl)
@@ -267,11 +269,7 @@ class ERA5Loader:
                         merged[f"u{level}"] = u
                         merged[f"v{level}"] = v
                 merged = merged.drop_vars(
-                    [
-                        v
-                        for v in ["u_component_of_wind", "v_component_of_wind"]
-                        if v in merged
-                    ]
+                    [v for v in ["u_component_of_wind", "v_component_of_wind"] if v in merged]
                 )
 
             merged.to_netcdf(filepath)
@@ -326,9 +324,7 @@ class ERA5Loader:
             east_ds = self.load_file(east_file)
             west_ds = self.load_file(west_file)
 
-            combined = xr.concat([west_ds, east_ds], dim="longitude").sortby(
-                "longitude"
-            )
+            combined = xr.concat([west_ds, east_ds], dim="longitude").sortby("longitude")
 
             east_ds.close()
             west_ds.close()

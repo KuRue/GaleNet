@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from omegaconf import DictConfig
 
 # Ensure src on path
@@ -24,7 +25,9 @@ spec.loader.exec_module(train_model)  # type: ignore[attr-defined]
 
 
 class DummyPipeline:
-    def load_hurricane_for_training(self, storm_id, include_era5=True, patch_size=25.0):
+    def load_hurricane_for_training(
+        self, storm_id, include_era5=True, include_satellite=True, patch_size=25.0
+    ):
         times = pd.date_range("2020-01-01", periods=3, freq="H")
         values = np.arange(3, dtype=float)
         track = pd.DataFrame(
@@ -36,8 +39,35 @@ class DummyPipeline:
                 "min_pressure": values,
             }
         )
-        era5 = np.zeros((3, 4), dtype=np.float32)
-        return {"track": track, "era5": era5}
+        lat = [0.0, 1.0]
+        lon = [0.0, 1.0]
+        shape = (len(times), 2, 2)
+        data = {"track": track}
+        if include_satellite:
+            sat = xr.Dataset(
+                {
+                    "ir1": (("time", "latitude", "longitude"), np.zeros(shape, dtype=np.float32)),
+                    "ir2": (("time", "latitude", "longitude"), np.zeros(shape, dtype=np.float32)),
+                    "water_vapor": (
+                        ("time", "latitude", "longitude"),
+                        np.zeros(shape, dtype=np.float32),
+                    ),
+                },
+                coords={"time": times, "latitude": lat, "longitude": lon},
+            )
+            data["satellite"] = sat
+        if include_era5:
+            era5 = xr.Dataset(
+                {
+                    "u10": (("time", "latitude", "longitude"), np.zeros(shape, dtype=np.float32)),
+                    "v10": (("time", "latitude", "longitude"), np.zeros(shape, dtype=np.float32)),
+                    "msl": (("time", "latitude", "longitude"), np.zeros(shape, dtype=np.float32)),
+                    "sst": (("time", "latitude", "longitude"), np.zeros(shape, dtype=np.float32)),
+                },
+                coords={"time": times, "latitude": lat, "longitude": lon},
+            )
+            data["era5"] = era5
+        return data
 
 
 def test_train_model_runs_one_epoch(monkeypatch, tmp_path):
@@ -56,11 +86,9 @@ def test_train_model_runs_one_epoch(monkeypatch, tmp_path):
                 self.inner = pangu.PanguModel(ckpt)
                 self.dummy = torch.nn.Parameter(torch.zeros(1))
 
-            def forward(self, _tracks: torch.Tensor, era5: torch.Tensor) -> torch.Tensor:
-                import numpy as np
-
-                out = self.inner.infer(era5.detach().cpu().numpy())
-                return torch.from_numpy(np.asarray(out, dtype=np.float32)) + self.dummy
+            def forward(self, era5: torch.Tensor) -> torch.Tensor:
+                shape = (era5.shape[0], era5.shape[1], 1, 4)
+                return torch.zeros(shape, dtype=torch.float32) + self.dummy
 
         return DummyModule(cfg.model.pangu.checkpoint_path)
 
