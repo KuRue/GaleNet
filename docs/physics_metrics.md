@@ -39,4 +39,3 @@ E = \int_V \left[\tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z
 1. Use finite differences to compute spatial derivatives of the horizontal velocity components and obtain $\zeta$.
 2. Integrate $\zeta$ over the domain for prediction ($\zeta_p$) and truth ($\zeta_t$).
 3. Report the relative error $|\zeta_p - \zeta_t|/|\zeta_t|$.
-
