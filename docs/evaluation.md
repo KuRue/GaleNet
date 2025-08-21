@@ -54,7 +54,7 @@ To track additional metrics, implement a new function, add it to that
 dictionary, and list its name in your configuration.
 
 ## Conservation metrics
-To assess physical consistency, GaleNet tracks conservation of mass, total energy and relative vorticity alongside traditional forecast scores.
+To assess physical consistency, GaleNet tracks conservation of mass, total energy and vertical vorticity alongside traditional forecast scores.
 
 ### Definitions
 - **Mass**: $M=\int_V \rho\,\mathrm{d}V$.

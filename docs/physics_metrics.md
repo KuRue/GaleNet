@@ -1,78 +1,42 @@
 # Physics-based Metrics
 
-This document defines physical consistency metrics that can be used as loss
-functions during model training.
+This document defines the conserved quantities tracked during training and evaluation. The formulations follow standard meteorological treatments such as Holton & Hakim (2012).
 
-## Mass Conservation
-Measures how well the predicted density field preserves total mass.
+## Total Mass
 
 **Definition**
 
 \[
-L_\text{mass} = \left(\sum_i p_i - \sum_i t_i\right)^2
+M = \int_V \rho\,\mathrm{d}V
 \]
-where $p_i$ and $t_i$ denote predicted and target density values.
 
-**Calculation**
-1. Sum all elements of the predicted and target density fields.
-2. Compute the squared difference of the two totals.
-
-## Momentum Conservation
-Ensures the integrated momentum of the velocity field matches the target.
-
-**Definition**
-
-\[
-L_\text{mom} = \left(\sum_i \vec{p}_i - \sum_i \vec{t}_i\right)^2
-\]
-where $\vec{p}_i=(u_i, v_i)$ and $\vec{t}_i$ are predicted and target velocity
-vectors.
-
-**Calculation**
-1. Sum the velocity vectors over all grid points for both fields.
-2. Compute the squared Euclidean distance between the totals.
-
-## Kinetic Energy
-Penalises differences in kinetic energy between predicted and target
-velocities.
-
-**Definition**
-
-\[
-L_\text{ke} = \frac{1}{N} \sum_i \left( \tfrac{1}{2}\|\vec{p}_i\|^2 - \tfrac{1}{2}\|\vec{t}_i\|^2 \right)^2
-\]
-where $N$ is the number of grid points.
-
-**Calculation**
-1. Compute kinetic energy $\tfrac{1}{2}(u^2+v^2)$ for each velocity vector.
-2. Subtract target from prediction and compute the mean squared difference.
+**Computation**
+1. Integrate the density field over the domain for both prediction ($M_p$) and truth ($M_t$).
+2. Report the relative error $|M_p - M_t|/M_t$.
 
 ## Total Energy
-Extends kinetic energy with internal and gravitational potential energy.
 
 **Definition**
 
 \[
-L_\text{te} = \left(\int_V e_p\,\mathrm{d}V - \int_V e_t\,\mathrm{d}V\right)^2,
+E = \int_V \left[\tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z\right] \,\mathrm{d}V
 \]
-where $e = \tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z$ is the specific energy density and subscripts $p$ and $t$ denote prediction and target.
 
-**Calculation**
-1. Compute $e$ at each grid cell using velocity $\mathbf{u}=(u,v)$, temperature $T$, and height $z$.
-2. Integrate $e$ over the domain for prediction and target.
-3. Take the squared difference of the two totals.
+**Computation**
+1. Compute the specific energy density $e = \tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z$ at each grid cell.
+2. Integrate $e$ over the domain for prediction ($E_p$) and truth ($E_t$).
+3. Report the relative error $|E_p - E_t|/E_t$.
 
-## Relative Vorticity
-Measures rotation in the horizontal flow field.
+## Vertical Vorticity
 
 **Definition**
 
 \[
-L_\text{vort} = \left(\sum_i \zeta_{p,i} - \sum_i \zeta_{t,i}\right)^2,
+\zeta = \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
 \]
-where $\zeta = \partial v/\partial x - \partial u/\partial y$ is the vertical component of vorticity.
 
-**Calculation**
-1. Compute spatial derivatives of the velocity field to obtain $\zeta$.
-2. Sum vorticity over the grid for prediction and target.
-3. Compute the squared difference of the totals.
+**Computation**
+1. Use finite differences to compute spatial derivatives of the horizontal velocity components and obtain $\zeta$.
+2. Integrate $\zeta$ over the domain for prediction ($\zeta_p$) and truth ($\zeta_t$).
+3. Report the relative error $|\zeta_p - \zeta_t|/|\zeta_t|$.
+
