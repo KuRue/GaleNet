@@ -1,0 +1,37 @@
+name: Model CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  lint-and-train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+      - name: Run pre-commit on changed files
+        run: |
+          files=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD)
+          if [ -n "$files" ]; then
+            pre-commit run --files $files --show-diff-on-failure
+          else
+            echo "No files changed; skipping pre-commit"
+          fi
+      - name: Minimal training run
+        run: |
+          if command -v nvidia-smi >/dev/null 2>&1; then
+            nvidia-smi
+          else
+            echo "No GPU detected; running on CPU"
+          fi
+          pytest tests/test_train_model_pangu.py::test_train_model_runs_one_epoch -q
