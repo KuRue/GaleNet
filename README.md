@@ -197,7 +197,7 @@ docker run --gpus all -p 8000:8000 galenet:latest
   - *Goal*: Achieve <20 km track RMSE and ≤10 kt intensity MAE at 24 h versus GraphCast across 24–72 h leads. Track errors use root-mean-square error (RMSE); intensity errors use mean absolute error (MAE).
 
 - [ ] **Physics‑informed module prototypes**
-  - *Goal*: Conservation metrics (e.g., mass, energy) improve ≥10 % over baseline.
+  - *Goal*: Conservation metrics—total mass $M=\int_V \rho\,\mathrm{d}V$, total energy $E=\int_V \left[\tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z\right]\,\mathrm{d}V$, and vertical vorticity $\zeta=\partial v/\partial x - \partial u/\partial y$—improve ≥10 % over baseline. See [Physics-based Metrics](docs/physics_metrics.md) for details.
 
 - [ ] **Ensemble strategy**
   - *Goal*: Continuous ranked probability score and reliability diagrams show ≥5 % improvement over best single model.

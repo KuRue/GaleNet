@@ -53,6 +53,20 @@ The evaluator reads the default metric list from `evaluation.metrics` in
 To track additional metrics, implement a new function, add it to that
 dictionary, and list its name in your configuration.
 
+## Conservation metrics
+To assess physical consistency, GaleNet tracks conservation of mass, total energy and vertical vorticity alongside traditional forecast scores.
+
+### Definitions
+- **Mass**: $M=\int_V \rho\,\mathrm{d}V$.
+- **Total energy**: $E=\int_V [\tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z] \,\mathrm{d}V$.
+- **Vertical vorticity**: $\zeta=\partial v/\partial x - \partial u/\partial y$.
+
+### Evaluation
+For each forecast step the evaluator integrates these quantities over the domain for both the prediction and the reanalysis truth. The relative error $|Q_p-Q_t|/Q_t$ is averaged over time to obtain a score.
+
+### Baseline comparison
+Baseline models (e.g., GraphCast or Pangu-Weather) are evaluated in the same way. Improvements are reported as the percentage reduction in error relative to the baseline: $(\text{error}_\text{base} - \text{error}_\text{model})/\text{error}_\text{base}$.
+
 ## Probabilistic evaluation
 Ensemble forecasts can assess uncertainty. GaleNet supports computation of
 the continuous ranked probability score (CRPS) and reliability diagrams.
