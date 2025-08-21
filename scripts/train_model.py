@@ -69,6 +69,29 @@ def build_model(cfg: DictConfig) -> "torch.nn.Module":
         ckpt = cfg.model.pangu.get("checkpoint_path", "")
         return _PanguModule(ckpt)
 
+    if name == "hurricane_cnn" or name == "hurricanecnn":
+        from galenet.models import HurricaneCNN
+
+        class _HurricaneCNNModule(torch.nn.Module):
+            def __init__(self, cfg: DictConfig) -> None:
+                super().__init__()
+                channels_cfg = cfg.model.hurricane_cnn
+                channels = channels_cfg.get("channels")
+                in_channels = len(channels) if channels is not None else channels_cfg.get(
+                    "in_channels", 0
+                )
+                time_steps = cfg.training.get("sequence_window", 1)
+                self.inner = HurricaneCNN(in_channels, time_steps)
+
+            def forward(
+                self, tracks: torch.Tensor, images: torch.Tensor
+            ) -> torch.Tensor:
+                # Current implementation only uses image inputs; track tensors are
+                # accepted to maintain a consistent interface.
+                return self.inner(images)
+
+        return _HurricaneCNNModule(cfg)
+
     # Fallback simple baseline
     return torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(4, 4))
 
@@ -95,6 +118,7 @@ def main(cfg: DictConfig) -> None:
         storms,
         sequence_window=cfg.training.get("sequence_window", 1),
         forecast_window=cfg.training.get("forecast_window", 1),
+        patch_size=cfg.training.get("patch_size", 25.0),
     )
     loader = create_dataloader(
         dataset,
@@ -110,6 +134,7 @@ def main(cfg: DictConfig) -> None:
             val_storms,
             sequence_window=cfg.training.get("sequence_window", 1),
             forecast_window=cfg.training.get("forecast_window", 1),
+            patch_size=cfg.training.get("patch_size", 25.0),
         )
         val_loader = create_dataloader(
             val_dataset,
@@ -124,6 +149,7 @@ def main(cfg: DictConfig) -> None:
     # Checkpoint directory
     ckpt_dir = Path(cfg.get("checkpoint_dir", "checkpoints"))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+    metrics_path = ckpt_dir / cfg.get("metrics_file", "metrics.jsonl")
 
     device = cfg.get("project.device", "cuda")
     if device.startswith("cuda") and not torch.cuda.is_available():
@@ -135,7 +161,7 @@ def main(cfg: DictConfig) -> None:
         optimizer,
         device=device,
         grad_accum_steps=cfg.training.get("gradient_accumulation_steps", 1),
-        metrics_file=ckpt_dir / cfg.get("metrics_file", "metrics.jsonl"),
+        metrics_file=metrics_path,
     )
 
     # Training loop --------------------------------------------------------

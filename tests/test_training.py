@@ -88,12 +88,14 @@ def test_dataset_iteration() -> None:
     dataset = HurricaneDataset(pipeline, ["A", "B"], sequence_window=2, forecast_window=1)
 
     assert len(dataset) == 3
-    patches, target = next(iter(dataset))
+    tracks, target, patches = next(iter(dataset))
+    assert tracks.shape == (2, 2, 4)
     assert patches.shape == (2, 2, 7, 2, 2)
     assert target.shape == (2, 1, 4)
 
     loader = create_dataloader(dataset, batch_size=1, shuffle=False)
-    batch_patches, batch_target = next(iter(loader))
+    batch_tracks, batch_target, batch_patches = next(iter(loader))
+    assert batch_tracks.shape == (1, 2, 2, 4)
     assert batch_patches.shape == (1, 2, 2, 7, 2, 2)
     assert batch_target.shape == (1, 2, 1, 4)
 
@@ -103,22 +105,35 @@ def test_trainer_single_step_reduces_loss() -> None:
     dataset = HurricaneDataset(pipeline, ["TEST"], sequence_window=1, forecast_window=1)
     loader = create_dataloader(dataset, batch_size=1, shuffle=False)
 
-    model = torch.nn.Sequential(
-        torch.nn.Flatten(start_dim=3), torch.nn.Linear(7 * 2 * 2, 4, bias=False)
-    )
-    torch.nn.init.zeros_(model[1].weight)
+    class DummyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = torch.nn.Sequential(
+                torch.nn.Flatten(start_dim=3),
+                torch.nn.Linear(7 * 2 * 2, 4, bias=False),
+            )
+            torch.nn.init.zeros_(self.net[1].weight)
+
+        def forward(self, _tracks: torch.Tensor, patches: torch.Tensor) -> torch.Tensor:
+            return self.net(patches)
+
+    model = DummyModel()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     trainer = Trainer(model, optimizer)
 
-    batch_inputs, batch_targets = next(iter(loader))
+    batch_tracks, batch_targets, batch_patches = next(iter(loader))
     with torch.no_grad():
-        initial = torch.nn.functional.mse_loss(model(batch_inputs), batch_targets).item()
+        initial = torch.nn.functional.mse_loss(
+            model(batch_tracks, batch_patches), batch_targets
+        ).item()
 
     metrics = list(trainer.train(loader, epochs=1))
     assert "train_loss" in metrics[0]
 
     with torch.no_grad():
-        final = torch.nn.functional.mse_loss(model(batch_inputs), batch_targets).item()
+        final = torch.nn.functional.mse_loss(
+            model(batch_tracks, batch_patches), batch_targets
+        ).item()
 
     assert final < initial
 
@@ -128,16 +143,25 @@ def test_trainer_updates_weights() -> None:
     dataset = HurricaneDataset(pipeline, ["TEST"], sequence_window=1, forecast_window=1)
     loader = create_dataloader(dataset, batch_size=1, shuffle=False)
 
-    model = torch.nn.Sequential(
-        torch.nn.Flatten(start_dim=3), torch.nn.Linear(7 * 2 * 2, 4, bias=False)
-    )
-    torch.nn.init.zeros_(model[1].weight)
+    class DummyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = torch.nn.Sequential(
+                torch.nn.Flatten(start_dim=3),
+                torch.nn.Linear(7 * 2 * 2, 4, bias=False),
+            )
+            torch.nn.init.zeros_(self.net[1].weight)
+
+        def forward(self, _tracks: torch.Tensor, patches: torch.Tensor) -> torch.Tensor:
+            return self.net(patches)
+
+    model = DummyModel()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     trainer = Trainer(model, optimizer)
 
-    initial_weights = model[1].weight.detach().clone()
+    initial_weights = model.net[1].weight.detach().clone()
     list(trainer.train(loader, epochs=1))
-    updated_weights = model[1].weight.detach()
+    updated_weights = model.net[1].weight.detach()
 
     assert not torch.allclose(initial_weights, updated_weights)
 
@@ -147,26 +171,35 @@ def test_trainer_checkpoint_restore(tmp_path) -> None:
     dataset = HurricaneDataset(pipeline, ["TEST"], sequence_window=1, forecast_window=1)
     loader = create_dataloader(dataset, batch_size=1, shuffle=False)
 
-    model = torch.nn.Sequential(
-        torch.nn.Flatten(start_dim=3), torch.nn.Linear(7 * 2 * 2, 4, bias=False)
-    )
-    torch.nn.init.zeros_(model[1].weight)
+    class DummyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = torch.nn.Sequential(
+                torch.nn.Flatten(start_dim=3),
+                torch.nn.Linear(7 * 2 * 2, 4, bias=False),
+            )
+            torch.nn.init.zeros_(self.net[1].weight)
+
+        def forward(self, _tracks: torch.Tensor, patches: torch.Tensor) -> torch.Tensor:
+            return self.net(patches)
+
+    model = DummyModel()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     trainer = Trainer(model, optimizer)
 
     list(trainer.train(loader, epochs=1))
-    saved_weights = model[1].weight.detach().clone()
+    saved_weights = model.net[1].weight.detach().clone()
     ckpt = tmp_path / "ckpt.pt"
     trainer.save_checkpoint(ckpt, epoch=1)
 
     with torch.no_grad():
-        model[1].weight.add_(1.0)
+        model.net[1].weight.add_(1.0)
 
     list(trainer.train(loader, epochs=0, resume_from=ckpt))
-    assert torch.allclose(model[1].weight, saved_weights)
+    assert torch.allclose(model.net[1].weight, saved_weights)
 
     list(trainer.train(loader, epochs=1, start_epoch=1))
-    assert not torch.allclose(model[1].weight, saved_weights)
+    assert not torch.allclose(model.net[1].weight, saved_weights)
 
 
 def test_trainer_logs_metrics(tmp_path) -> None:
@@ -174,9 +207,18 @@ def test_trainer_logs_metrics(tmp_path) -> None:
     dataset = HurricaneDataset(pipeline, ["TEST"], sequence_window=1, forecast_window=1)
     loader = create_dataloader(dataset, batch_size=1, shuffle=False)
 
-    model = torch.nn.Sequential(
-        torch.nn.Flatten(start_dim=3), torch.nn.Linear(7 * 2 * 2, 4, bias=False)
-    )
+    class DummyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = torch.nn.Sequential(
+                torch.nn.Flatten(start_dim=3),
+                torch.nn.Linear(7 * 2 * 2, 4, bias=False),
+            )
+
+        def forward(self, _tracks: torch.Tensor, patches: torch.Tensor) -> torch.Tensor:
+            return self.net(patches)
+
+    model = DummyModel()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     metrics_file = tmp_path / "metrics.jsonl"
     trainer = Trainer(model, optimizer, metrics_file=metrics_file)
@@ -195,9 +237,18 @@ def test_trainer_validation_loop() -> None:
     train_loader = create_dataloader(train_dataset, batch_size=1, shuffle=False)
     val_loader = create_dataloader(val_dataset, batch_size=1, shuffle=False)
 
-    model = torch.nn.Sequential(
-        torch.nn.Flatten(start_dim=3), torch.nn.Linear(7 * 2 * 2, 4, bias=False)
-    )
+    class DummyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = torch.nn.Sequential(
+                torch.nn.Flatten(start_dim=3),
+                torch.nn.Linear(7 * 2 * 2, 4, bias=False),
+            )
+
+        def forward(self, _tracks: torch.Tensor, patches: torch.Tensor) -> torch.Tensor:
+            return self.net(patches)
+
+    model = DummyModel()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     trainer = Trainer(model, optimizer)
 

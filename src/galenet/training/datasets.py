@@ -11,13 +11,14 @@ from torch.utils.data import DataLoader, IterableDataset
 from ..data import HurricaneDataPipeline
 
 
-class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor]]):
-    """Stream image patches and track targets across multiple storms.
+class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
+    """Stream track histories, image patches and targets across storms.
 
-    Each yielded tuple contains ``(patch_batch, target_batch)``. ``patch_batch``
-    has shape ``(num_storms, sequence_window, channels, H, W)`` while
-    ``target_batch`` has shape ``(num_storms, forecast_window, features)`` where
+    Each yielded tuple contains ``(track_batch, target_batch, patch_batch)``.
+    ``track_batch`` has shape ``(num_storms, sequence_window, features)`` where
     ``features`` correspond to ``[latitude, longitude, max_wind, min_pressure]``.
+    ``patch_batch`` has shape ``(num_storms, sequence_window, channels, H, W)``
+    while ``target_batch`` has shape ``(num_storms, forecast_window, features)``.
     """
 
     def __init__(
@@ -47,7 +48,7 @@ class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor]]):
         self._length = min(lengths) if lengths else 0
 
     # ------------------------------------------------------------------
-    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
+    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         cols = ["latitude", "longitude", "max_wind", "min_pressure"]
         tracks: List[np.ndarray] = []
         patches: List[np.ndarray] = []
@@ -80,10 +81,16 @@ class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor]]):
 
         limit = self._length
         for i in range(max(limit, 0)):
-            patch_batch: List[torch.Tensor] = []
+            track_batch: List[torch.Tensor] = []
             tgt_batch: List[torch.Tensor] = []
+            patch_batch: List[torch.Tensor] = []
             for patch_arr, track_arr in zip(patches, tracks):
-                patch_batch.append(torch.from_numpy(patch_arr[i : i + self.sequence_window]))
+                track_batch.append(
+                    torch.from_numpy(track_arr[i : i + self.sequence_window])
+                )
+                patch_batch.append(
+                    torch.from_numpy(patch_arr[i : i + self.sequence_window])
+                )
                 tgt_batch.append(
                     torch.from_numpy(
                         track_arr[
@@ -94,9 +101,10 @@ class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor]]):
                         ]
                     )
                 )
-            patch_tensor = torch.stack(patch_batch)
+            track_tensor = torch.stack(track_batch)
             tgt_tensor = torch.stack(tgt_batch)
-            yield (patch_tensor, tgt_tensor)
+            patch_tensor = torch.stack(patch_batch)
+            yield (track_tensor, tgt_tensor, patch_tensor)
 
     # ------------------------------------------------------------------
     def __len__(self) -> int:  # pragma: no cover - trivial
