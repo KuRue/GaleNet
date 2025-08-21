@@ -5,13 +5,13 @@ from .era5 import ERA5Loader
 from .hurdat2 import HURDAT2Loader
 from .ibtracs import IBTrACSLoader
 from .pipeline import HurricaneDataPipeline
-from .satellite import SatelliteLoader
 from .processors import (
     ERA5Preprocessor,
     HurricanePreprocessor,
     create_track_features,
     normalize_track_data,
 )
+from .satellite import SatelliteLoader
 from .validators import (
     HurricaneDataValidator,
     validate_era5_data,
