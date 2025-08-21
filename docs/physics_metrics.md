@@ -46,3 +46,33 @@ where $N$ is the number of grid points.
 **Calculation**
 1. Compute kinetic energy $\tfrac{1}{2}(u^2+v^2)$ for each velocity vector.
 2. Subtract target from prediction and compute the mean squared difference.
+
+## Total Energy
+Extends kinetic energy with internal and gravitational potential energy.
+
+**Definition**
+
+\[
+L_\text{te} = \left(\int_V e_p\,\mathrm{d}V - \int_V e_t\,\mathrm{d}V\right)^2,
+\]
+where $e = \tfrac{1}{2}\rho\lVert\mathbf{u}\rVert^2 + c_p\rho T + \rho g z$ is the specific energy density and subscripts $p$ and $t$ denote prediction and target.
+
+**Calculation**
+1. Compute $e$ at each grid cell using velocity $\mathbf{u}=(u,v)$, temperature $T$, and height $z$.
+2. Integrate $e$ over the domain for prediction and target.
+3. Take the squared difference of the two totals.
+
+## Relative Vorticity
+Measures rotation in the horizontal flow field.
+
+**Definition**
+
+\[
+L_\text{vort} = \left(\sum_i \zeta_{p,i} - \sum_i \zeta_{t,i}\right)^2,
+\]
+where $\zeta = \partial v/\partial x - \partial u/\partial y$ is the vertical component of vorticity.
+
+**Calculation**
+1. Compute spatial derivatives of the velocity field to obtain $\zeta$.
+2. Sum vorticity over the grid for prediction and target.
+3. Compute the squared difference of the totals.
