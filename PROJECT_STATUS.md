@@ -18,7 +18,7 @@ This document provides a quick snapshot of GaleNet's progress and what's next.
    - Comprehensive evaluation guide with GraphCast and Pangu-Weather examples
    - Expand end-to-end data pipeline documentation and schema coverage
 - **Upcoming**
-   - Train CNN‑Transformer baseline and report 24–72 h track RMSE (<20 km at 24 h)
+   - Train CNN‑Transformer baseline and report 24–72 h track RMSE (<20 km at 24 h) and intensity MAE (≤10 kt at 24 h) compared against GraphCast. Track errors use root-mean-square error (RMSE); intensity errors use mean absolute error (MAE).
    - Prototype physics‑informed modules with ≥10 % improvement in conservation metrics
    - Evaluate ensemble strategy with ≥5 % gain in CRPS and reliability over single models
 
