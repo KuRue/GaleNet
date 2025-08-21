@@ -194,7 +194,7 @@ docker run --gpus all -p 8000:8000 galenet:latest
 ### Phase 2: Model Development 📃 **Planned**
 
 - [ ] **CNN‑Transformer baseline**
-  - *Goal*: 24–72 h track RMSE and intensity MAE compared against GraphCast with <20 km track RMSE and ≤10 kt intensity MAE at 24 h.
+  - *Goal*: Achieve <20 km track RMSE and ≤10 kt intensity MAE at 24 h versus GraphCast across 24–72 h leads. Track errors use root-mean-square error (RMSE); intensity errors use mean absolute error (MAE).
 
 - [ ] **Physics‑informed module prototypes**
   - *Goal*: Conservation metrics (e.g., mass, energy) improve ≥10 % over baseline.
