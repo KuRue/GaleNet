@@ -21,7 +21,8 @@ jobs:
           pip install .[dev]
       - name: Run pre-commit on changed files
         run: |
-          files=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD)
+          BASE_REF=${{ github.base_ref || 'main' }}
+          files=$(git diff --name-only --diff-filter=d origin/$BASE_REF...HEAD)
           if [ -n "$files" ]; then
             pre-commit run --files $files --show-diff-on-failure
           else
