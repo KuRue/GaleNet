@@ -209,5 +209,12 @@ GraphCast and Pangu-Weather.
 | graphcast | 78.0 | 52.0 | 34.0 | 8.2 |
 | pangu | 85.0 | 58.0 | 40.0 | 9.1 |
 
+Additional probabilistic metrics (test split averages):
+
+| forecast | crps | reliability |
+|----------|-----:|------------:|
+| graphcast | 0.43 | 0.06 |
+| pangu | 0.47 | 0.08 |
+
 ## Next Steps
 Use the generated metrics to compare model variants or validate training runs. For details on configuring the data pipeline, see the [Data Pipeline](data_pipeline.md) reference.
