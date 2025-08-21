@@ -77,15 +77,13 @@ def build_model(cfg: DictConfig) -> "torch.nn.Module":
                 super().__init__()
                 channels_cfg = cfg.model.hurricane_cnn
                 channels = channels_cfg.get("channels")
-                in_channels = len(channels) if channels is not None else channels_cfg.get(
-                    "in_channels", 0
+                in_channels = (
+                    len(channels) if channels is not None else channels_cfg.get("in_channels", 0)
                 )
                 time_steps = cfg.training.get("sequence_window", 1)
                 self.inner = HurricaneCNN(in_channels, time_steps)
 
-            def forward(
-                self, tracks: torch.Tensor, images: torch.Tensor
-            ) -> torch.Tensor:
+            def forward(self, tracks: torch.Tensor, images: torch.Tensor) -> torch.Tensor:
                 # Current implementation only uses image inputs; track tensors are
                 # accepted to maintain a consistent interface.
                 return self.inner(images)

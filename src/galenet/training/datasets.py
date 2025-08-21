@@ -85,12 +85,8 @@ class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor, torch.T
             tgt_batch: List[torch.Tensor] = []
             patch_batch: List[torch.Tensor] = []
             for patch_arr, track_arr in zip(patches, tracks):
-                track_batch.append(
-                    torch.from_numpy(track_arr[i : i + self.sequence_window])
-                )
-                patch_batch.append(
-                    torch.from_numpy(patch_arr[i : i + self.sequence_window])
-                )
+                track_batch.append(torch.from_numpy(track_arr[i : i + self.sequence_window]))
+                patch_batch.append(torch.from_numpy(patch_arr[i : i + self.sequence_window]))
                 tgt_batch.append(
                     torch.from_numpy(
                         track_arr[
