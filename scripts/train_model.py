@@ -8,8 +8,12 @@ from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
+from typing import TYPE_CHECKING
 
 from galenet.data import HurricaneDataPipeline
+
+if TYPE_CHECKING:  # pragma: no cover
+    import torch
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +80,7 @@ def main(cfg: DictConfig) -> None:
     logging.basicConfig(level=logging.INFO)
 
     import importlib
+
     try:
         torch = importlib.import_module("torch")
     except ModuleNotFoundError as exc:  # pragma: no cover - handled by tests
@@ -125,10 +130,15 @@ def main(cfg: DictConfig) -> None:
     ckpt_dir = Path(cfg.get("checkpoint_dir", "checkpoints"))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
+    device = cfg.get("project.device", "cuda")
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        log.info("CUDA requested but not available; falling back to CPU")
+        device = "cpu"
+
     trainer = Trainer(
         model,
         optimizer,
-        device=cfg.project.get("device", "cpu"),
+        device=device,
         grad_accum_steps=cfg.training.get("gradient_accumulation_steps", 1),
         metrics_file=ckpt_dir / cfg.get("metrics_file", "metrics.jsonl"),
     )
@@ -170,4 +180,3 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     main()
-

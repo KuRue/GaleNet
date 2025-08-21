@@ -82,7 +82,7 @@ def test_train_model_runs_one_epoch(monkeypatch, tmp_path):
                 "epochs": 1,
                 "learning_rate": 0.1,
             },
-            "project": {"device": "cpu"},
+            "project": {"device": "cuda"},
             "checkpoint_dir": str(tmp_path),
             "metrics_file": "metrics.jsonl",
         }

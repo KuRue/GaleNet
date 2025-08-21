@@ -20,4 +20,10 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files --show-diff-on-failure
       - name: Minimal training run
-        run: pytest tests/test_train_model_pangu.py::test_train_model_runs_one_epoch -q
+        run: |
+          if command -v nvidia-smi >/dev/null 2>&1; then
+            nvidia-smi
+          else
+            echo "No GPU detected; running on CPU"
+          fi
+          pytest tests/test_train_model_pangu.py::test_train_model_runs_one_epoch -q

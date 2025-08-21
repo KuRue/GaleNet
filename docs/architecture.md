@@ -32,8 +32,8 @@ model:
 ## System Requirements
 
 - **GPU** – GraphCast and Pangu backbones expect an NVIDIA GPU with at least
-  16 GB of memory. The repository falls back to CPU when no CUDA device is
-  detected (`nvidia-smi` absent).
+  16 GB of memory. Training automatically uses the CPU when no CUDA device is
+  detected (e.g., when `nvidia-smi` is absent).
 - **Storage** – Downloaded datasets and training checkpoints require
   roughly 50 GB of disk space; ensure at least ~25 GB free before running
   experiments. The current container reports about 22 GB available.
