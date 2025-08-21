@@ -10,20 +10,14 @@ from torch.utils.data import DataLoader, IterableDataset
 
 from ..data import HurricaneDataPipeline
 
-TrackPair = Tuple[torch.Tensor, torch.Tensor]
-TrackTriplet = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
+class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, torch.Tensor]]):
+    """Stream image patches and track targets across multiple storms.
 
-class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, ...]]):
-    """Stream synchronized track windows across multiple storms.
-
-    The dataset yields tuples of ``(sequence_batch, target_batch)`` or
-    ``(sequence_batch, target_batch, era5_batch)`` where each batch contains
-    windows for **all** storms provided. ``sequence_batch`` has shape
-    ``(num_storms, sequence_window, features)`` and ``target_batch`` has shape
-    ``(num_storms, forecast_window, features)``. If ``include_era5`` is true an
-    additional tensor with shape ``(num_storms, forecast_window, era5_features)``
-    is returned.
+    Each yielded tuple contains ``(patch_batch, target_batch)``. ``patch_batch``
+    has shape ``(num_storms, sequence_window, channels, H, W)`` while
+    ``target_batch`` has shape ``(num_storms, forecast_window, features)`` where
+    ``features`` correspond to ``[latitude, longitude, max_wind, min_pressure]``.
     """
 
     def __init__(
@@ -32,61 +26,67 @@ class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, ...]]):
         storms: Sequence[str],
         sequence_window: int = 1,
         forecast_window: int = 1,
-        include_era5: bool = False,
+        patch_size: float = 25.0,
     ) -> None:
         self.pipeline = pipeline
         self.storms = list(storms)
         self.sequence_window = int(sequence_window)
         self.forecast_window = int(forecast_window)
-        self.include_era5 = bool(include_era5)
+        self.patch_size = float(patch_size)
 
-        # Pre-compute the total length for __len__ without storing samples.
+        # Determine minimal length across storms using track data only
         lengths: List[int] = []
         cols = ["latitude", "longitude", "max_wind", "min_pressure"]
         for storm_id in self.storms:
-            data = self.pipeline.load_hurricane_for_training(storm_id, include_era5=False)
+            data = self.pipeline.load_hurricane_for_training(
+                storm_id, include_era5=False, include_satellite=False
+            )
             track = data["track"].sort_values("timestamp").reset_index(drop=True)
             arr = track[cols].to_numpy(dtype=np.float32)
-            lengths.append(
-                max(len(arr) - self.sequence_window - self.forecast_window + 1, 0)
-            )
+            lengths.append(max(len(arr) - self.sequence_window - self.forecast_window + 1, 0))
         self._length = min(lengths) if lengths else 0
 
     # ------------------------------------------------------------------
-    def __iter__(self) -> Iterator[Tuple[torch.Tensor, ...]]:
+    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
         cols = ["latitude", "longitude", "max_wind", "min_pressure"]
         tracks: List[np.ndarray] = []
-        era5_list: List[np.ndarray | None] = []
+        patches: List[np.ndarray] = []
         for storm_id in self.storms:
             data = self.pipeline.load_hurricane_for_training(
-                storm_id, include_era5=self.include_era5
+                storm_id,
+                include_era5=True,
+                include_satellite=True,
+                patch_size=self.patch_size,
             )
             track = data["track"].sort_values("timestamp").reset_index(drop=True)
             tracks.append(track[cols].to_numpy(dtype=np.float32))
 
-            if self.include_era5:
-                era5 = data.get("era5")
-                if era5 is not None:
-                    try:
-                        era5_arr = np.asarray(era5)
-                    except Exception:  # pragma: no cover - very defensive
-                        era5_arr = np.asarray(getattr(era5, "to_array")())
-                else:
-                    era5_arr = None
-                era5_list.append(era5_arr)
-            else:
-                era5_list.append(None)
+            patch_arrays: List[np.ndarray] = []
+            sat = data.get("satellite")
+            if sat is not None:
+                sat_arr = (
+                    sat.to_array().transpose("time", "variable", "latitude", "longitude").to_numpy()
+                )
+                patch_arrays.append(sat_arr)
+            era5 = data.get("era5")
+            if era5 is not None:
+                era5_arr = (
+                    era5.to_array()
+                    .transpose("time", "variable", "latitude", "longitude")
+                    .to_numpy()
+                )
+                patch_arrays.append(era5_arr)
+            patches.append(np.concatenate(patch_arrays, axis=1))
 
         limit = self._length
         for i in range(max(limit, 0)):
-            seq_batch: List[torch.Tensor] = []
+            patch_batch: List[torch.Tensor] = []
             tgt_batch: List[torch.Tensor] = []
-            era5_batch: List[torch.Tensor] | None = [] if self.include_era5 else None
-            for arr, era5_arr in zip(tracks, era5_list):
-                seq_batch.append(torch.from_numpy(arr[i : i + self.sequence_window]))
+            for patch_arr, track_arr in zip(patches, tracks):
+                patch_batch.append(torch.from_numpy(patch_arr[i : i + self.sequence_window]))
                 tgt_batch.append(
                     torch.from_numpy(
-                        arr[
+                        track_arr[
                             i
                             + self.sequence_window : i
                             + self.sequence_window
@@ -94,24 +94,9 @@ class HurricaneDataset(IterableDataset[Tuple[torch.Tensor, ...]]):
                         ]
                     )
                 )
-                if era5_batch is not None and era5_arr is not None:
-                    era5_batch.append(
-                        torch.from_numpy(
-                            era5_arr[
-                                i
-                                + self.sequence_window : i
-                                + self.sequence_window
-                                + self.forecast_window
-                            ]
-                        )
-                    )
-            seq_tensor = torch.stack(seq_batch)
+            patch_tensor = torch.stack(patch_batch)
             tgt_tensor = torch.stack(tgt_batch)
-            if era5_batch is not None:
-                era5_tensor = torch.stack(era5_batch)
-                yield (seq_tensor, tgt_tensor, era5_tensor)
-            else:
-                yield (seq_tensor, tgt_tensor)
+            yield (patch_tensor, tgt_tensor)
 
     # ------------------------------------------------------------------
     def __len__(self) -> int:  # pragma: no cover - trivial

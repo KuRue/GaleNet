@@ -87,9 +87,6 @@ def main(cfg: DictConfig) -> None:
         raise ModuleNotFoundError("No module named 'torch'") from exc
     from galenet.training import HurricaneDataset, Trainer, create_dataloader
 
-    model_name = cfg.model.get("name", "").lower()
-    needs_era5 = model_name in {"graphcast", "pangu"}
-
     # Data -----------------------------------------------------------------
     storms = cfg.training.get("storms", ["AL012011"])
     pipeline = HurricaneDataPipeline()
@@ -98,7 +95,6 @@ def main(cfg: DictConfig) -> None:
         storms,
         sequence_window=cfg.training.get("sequence_window", 1),
         forecast_window=cfg.training.get("forecast_window", 1),
-        include_era5=needs_era5 or cfg.training.get("include_era5", False),
     )
     loader = create_dataloader(
         dataset,
@@ -114,7 +110,6 @@ def main(cfg: DictConfig) -> None:
             val_storms,
             sequence_window=cfg.training.get("sequence_window", 1),
             forecast_window=cfg.training.get("forecast_window", 1),
-            include_era5=needs_era5 or cfg.training.get("include_era5", False),
         )
         val_loader = create_dataloader(
             val_dataset,
