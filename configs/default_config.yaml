@@ -59,7 +59,7 @@ data:
 # Model configuration
 model:
   # Model selection
-  name: "graphcast"  # Options: graphcast, pangu (implemented); hurricane_cnn (planned), ensemble (planned)
+  name: "hurricane_cnn"  # Options: graphcast, pangu (implemented); hurricane_cnn (planned), ensemble (planned)
 
   # GraphCast settings
   graphcast:
@@ -105,11 +105,19 @@ model:
   # Hurricane CNN-Transformer
   # TODO: Implement Hurricane CNN-Transformer model
   hurricane_cnn:
-    encoder_layers: 6
-    decoder_layers: 6
-    hidden_dim: 256
-    num_heads: 8
-    dropout: 0.1
+    encoder_layers: 4
+    decoder_layers: 4
+    encoder_hidden_dim: 256
+    decoder_hidden_dim: 128
+    dropout: 0.2
+    channels:
+      - "sea_surface_temperature"
+      - "10m_u_component_of_wind"
+      - "10m_v_component_of_wind"
+      - "mean_sea_level_pressure"
+      - "ir1"
+      - "ir2"
+      - "water_vapor"
 
   # Ensemble settings
   ensemble:
@@ -124,9 +132,9 @@ model:
 # Training configuration
 training:
   # Basic settings
-  epochs: 100
-  learning_rate: 5e-5
-  weight_decay: 1e-4
+  epochs: 50
+  batch_size: 16
+  sequence_window: 6
   gradient_clip: 1.0
   gradient_accumulation_steps: 8
   # Final Phase 2 storm partitions
@@ -137,19 +145,25 @@ training:
     "AL112015", "AL042016", "AL082017",
     "AL062018", "AL052019"
   ]
-  sequence_window: 1
   forecast_window: 1
   include_era5: false
   shuffle: true
   resume_from: null
+  validation_split: 0.1
   val_storms: ["AL012020", "AL052020", "AL092021", "AL152021"]
   test_storms: []  # All remaining 2022–2023 Atlantic hurricanes
 
-  # Scheduler
+  # Optimization
+  optimizer:
+    name: adam
+    lr: 3e-4
+    weight_decay: 1e-5
+
   scheduler:
     name: "cosine"  # cosine, linear, exponential
     warmup_steps: 1000
     min_lr: 1e-6
+    t_max: 50
 
   # Loss functions
   loss:

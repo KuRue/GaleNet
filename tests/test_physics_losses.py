@@ -7,11 +7,9 @@ import pytest
 # Import losses without triggering heavy package imports
 sys.path.append(str(Path(__file__).parent.parent / "src/galenet/training"))
 
-from losses import (  # type: ignore  # noqa: E402
-    kinetic_energy_loss,
-    mass_conservation_loss,
-    momentum_conservation_loss,
-)
+from losses import kinetic_energy_loss  # type: ignore  # noqa: E402
+from losses import mass_conservation_loss  # noqa: E402
+from losses import momentum_conservation_loss  # noqa: E402
 
 
 def test_mass_conservation_loss():
