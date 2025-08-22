@@ -214,9 +214,11 @@ inference:
 evaluation:
   metrics:
     - "track_error"
+    - "track_rmse"
     - "along_track_error"
     - "cross_track_error"
     - "intensity_mae"
+    - "intensity_rmse"
     - "rapid_intensification_skill"
 
   baselines:

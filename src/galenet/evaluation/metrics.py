@@ -29,21 +29,23 @@ def _haversine(
     return EARTH_RADIUS_KM * c
 
 
-def track_error(
-    pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]
-) -> float:
+def track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
     """Mean great-circle distance between predicted and true track in km."""
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
-    distances = _haversine(
-        pred_arr[:, 0], pred_arr[:, 1], truth_arr[:, 0], truth_arr[:, 1]
-    )
+    distances = _haversine(pred_arr[:, 0], pred_arr[:, 1], truth_arr[:, 0], truth_arr[:, 1])
     return float(np.mean(distances))
 
 
-def _to_xy(
-    lat: float | np.ndarray, lon: float | np.ndarray, ref_lat: float
-) -> np.ndarray:
+def track_rmse(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
+    """Root mean square great-circle distance error in km."""
+    pred_arr = np.asarray(pred)
+    truth_arr = np.asarray(truth)
+    distances = _haversine(pred_arr[:, 0], pred_arr[:, 1], truth_arr[:, 0], truth_arr[:, 1])
+    return float(np.sqrt(np.mean(distances**2)))
+
+
+def _to_xy(lat: float | np.ndarray, lon: float | np.ndarray, ref_lat: float) -> np.ndarray:
     """Convert lat/lon to local Cartesian x/y in km using equirectangular projection."""
     lat_rad = np.radians(lat)
     lon_rad = np.radians(lon)
@@ -53,9 +55,7 @@ def _to_xy(
     return np.stack([x, y], axis=-1)
 
 
-def _along_cross_components(
-    pred: np.ndarray, truth: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
+def _along_cross_components(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Compute along-track and cross-track error components for each step."""
     ref_lat = float(np.mean(truth[:, 0]))
     truth_xy = _to_xy(truth[:, 0], truth[:, 1], ref_lat)
@@ -76,9 +76,7 @@ def _along_cross_components(
     return np.asarray(along_list), np.asarray(cross_list)
 
 
-def along_track_error(
-    pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]
-) -> float:
+def along_track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
     """Mean absolute error component along the true track direction in km."""
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
@@ -86,9 +84,7 @@ def along_track_error(
     return float(np.mean(np.abs(along)))
 
 
-def cross_track_error(
-    pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]
-) -> float:
+def cross_track_error(pred: Sequence[Sequence[float]], truth: Sequence[Sequence[float]]) -> float:
     """Mean absolute error component perpendicular to true track in km."""
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
@@ -101,6 +97,13 @@ def intensity_mae(pred: Sequence[float], truth: Sequence[float]) -> float:
     pred_arr = np.asarray(pred)
     truth_arr = np.asarray(truth)
     return float(np.mean(np.abs(pred_arr - truth_arr)))
+
+
+def intensity_rmse(pred: Sequence[float], truth: Sequence[float]) -> float:
+    """Root mean square error in storm intensity."""
+    pred_arr = np.asarray(pred)
+    truth_arr = np.asarray(truth)
+    return float(np.sqrt(np.mean((pred_arr - truth_arr) ** 2)))
 
 
 def rapid_intensification_skill(pred: Sequence[float], truth: Sequence[float]) -> float:
@@ -145,9 +148,11 @@ def rapid_intensification_skill(pred: Sequence[float], truth: Sequence[float]) -
 
 METRIC_FUNCTIONS: Mapping[str, Callable[..., float]] = {
     "track_error": track_error,
+    "track_rmse": track_rmse,
     "along_track_error": along_track_error,
     "cross_track_error": cross_track_error,
     "intensity_mae": intensity_mae,
+    "intensity_rmse": intensity_rmse,
     "rapid_intensification_skill": rapid_intensification_skill,
 }
 
@@ -178,7 +183,7 @@ def compute_metrics(
         func = METRIC_FUNCTIONS.get(name)
         if func is None:
             continue
-        if name in {"intensity_mae", "rapid_intensification_skill"}:
+        if name in {"intensity_mae", "intensity_rmse", "rapid_intensification_skill"}:
             results[name] = func(intensity_pred, intensity_truth)
         else:
             results[name] = func(track_pred, track_truth)
